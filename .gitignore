@@ -1,0 +1,15 @@
+# ignore virtual environment
+.venv
+._venv
+.vscode
+
+# ignore directories
+data/
+gph/
+models/
+__pycache__
+
+# ignore other files
+*.css
+*.html
+_test*
