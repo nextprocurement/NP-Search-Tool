@@ -7,7 +7,6 @@ import pandas as pd
 from tqdm import trange
 
 from src.Preprocessor.LanguageDetector import LanguageDetector
-from src.Preprocessor.NgramProcessor import replace_ngrams, suggest_ngrams
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
 from src.Utils.utils import load_stopwords, load_vocabulary
@@ -29,18 +28,19 @@ def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
     return df
 
 
-def save_df(df:pd.DataFrame, dir_df: Path):
+def save_df(df: pd.DataFrame, dir_df: Path):
     df.to_parquet(dir_df, engine="pyarrow")
 
 
 #  Process text
 if __name__ == "__main__":
     # Options
-    use_dask = False
+    use_dask = True
     subsample = 200_000
     # pipe = ["merge_data", "lang_id", "normalization", "preprocess"]
     # pipe = ["preprocess"]
     pipe = ["lang_id", "normalization", "preprocess"]
+    # pipe = ["preprocess"]
     merge_dfs = ["minors", "insiders", "outsiders"]
     lang = ["es"]
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     dir_vocabulary = dir_data.joinpath("RAE/vocabulary_extended.json")
 
     dir_text_metadata = dir_metadata.joinpath("df_text.parquet")
-    dir_text_processed = dir_metadata.joinpath("df_processed_pd.parquet")
+    dir_text_processed = dir_metadata.joinpath("df_processed_valid.parquet")
 
     # Load data
     stop_words = load_stopwords(dir_stopwords, use_stopwords="all")
@@ -86,6 +86,7 @@ if __name__ == "__main__":
                     exit()
                 else:
                     df_text = load_df(dir_text_metadata)
+                    df_text = df_text[df_text["text"].apply(lambda x: len(x) > 20)]
                     if subsample:
                         df_processed_ids = random.sample(list(df_text.index), subsample)
                         df_processed = df_text.loc[df_text.index.isin(df_processed_ids)]
@@ -178,7 +179,7 @@ if __name__ == "__main__":
                     "lowercase",
                     "remove_urls",
                     "lemmatize_text",
-                    ("clean_text", {"min_len": 2}),
+                    ("clean_text", {"min_len": 1}),
                     "convert_ngrams",
                     ("clean_text", {"min_len": 2}),
                     "remove_stopwords",
@@ -236,7 +237,7 @@ if __name__ == "__main__":
             if not proc == n_proc:
                 df_processed = load_df(dir_text_processed)
 
-        print("finished")
+        print("- finished")
 
 
 # # Test texts
