@@ -14,10 +14,8 @@ def find_ngrams(text: List[str], n: int = 2, **kwargs):
     return n_grams
 
 
-def _compute_word_counts(
+def _compute_ngram_counts(
     corpus: List[List[str]],
-    min_appearance_word: int = 0,
-    min_appearance_ngram: int = 0,
     n: int = 2,
 ):
     """
@@ -36,6 +34,59 @@ def _compute_word_counts(
         (word_counts.update(Counter(d)), ngrams.update(Counter(find_ngrams(d, n))))
         for d in corpus
     ]
+
+    return word_counts, ngrams
+
+
+def _compute_co_occurrence_counts(corpus: List[List[str]]):
+    """
+    Computes the total number of co-appearances in a text of two terms.
+
+    Parameters
+    ----------
+    corpus: list(list(str))
+    min_appearance: int
+        minimum number of appearances for a word in the entire vocabulary to be considered
+    n: int
+        ngram size
+    """
+    word_counts = Counter()
+    co_occurrence_counts = dict()
+
+    for d in corpus:
+        word_counts.update(Counter(d))
+        for word in d:
+            w_occ = co_occurrence_counts.get(word, Counter())
+            w_occ.update(Counter([w for w in d if not w == word]))
+            co_occurrence_counts[word] = w_occ
+    co_occurrence_counts = dict(
+        [
+            (tuple(sorted([w1, w2])), occ)
+            for w1, v in co_occurrence_counts.items()
+            for w2, occ in v.items()
+        ]
+    )
+    return word_counts, co_occurrence_counts
+
+
+def _filter_co_appearance(
+    word_counts: dict,
+    ngrams: dict,
+    min_appearance_word: int = 0,
+    min_appearance_ngram: int = 0,
+):
+    """
+    Parameters
+    ----------
+    word_counts: dict
+        word appearance dictionary. {"term1": num_appearances}
+    ngrams: dict
+        co-appearance dictionary. {("term1", "term2"): num_appearances}
+    min_appearance_word: int
+        minimum number of appearances for a term in the entire vocabulary to be considered
+    min_appearance_ngram: int
+        minimum number of appearances for a term tuple to be considered
+    """
 
     valid_vocab = set(word_counts.keys())
     valid_ngrams = set(ngrams.keys())
@@ -75,7 +126,12 @@ def _compute_word_counts(
     return word_counts, ngrams, total_words, total_ngrams
 
 
-def PMI(word_counts, co_occurrence_counts, total_words, total_ngrams):
+def PMI(
+    word_counts: dict, co_occurrence_counts: dict, total_words: int, total_ngrams: int
+):
+    """
+    Computes the Pointwise Mutual Information.
+    """
     pmi = {}
     for words, co_occurrence_count in co_occurrence_counts.items():
         p_words = [word_counts[w] / total_words for w in words]
@@ -113,22 +169,29 @@ def compute_pmi_ngram_corpus(
     """
     pmi = {}
     if isinstance(n, int):
+        word_counts, co_occurrence_counts = _compute_ngram_counts(corpus, n)
         (
             word_counts,
             co_occurrence_counts,
             total_words,
             total_ngrams,
-        ) = _compute_word_counts(corpus, min_appearance_word, min_appearance_ngram, n)
+        ) = _filter_co_appearance(
+            word_counts, co_occurrence_counts, min_appearance_word, min_appearance_ngram
+        )
         pmi = PMI(word_counts, co_occurrence_counts, total_words, total_ngrams)
     else:
         for el in n:
+            word_counts, co_occurrence_counts = _compute_ngram_counts(corpus, el)
             (
                 word_counts,
                 co_occurrence_counts,
                 total_words,
                 total_ngrams,
-            ) = _compute_word_counts(
-                corpus, min_appearance_word, min_appearance_ngram, el
+            ) = _filter_co_appearance(
+                word_counts,
+                co_occurrence_counts,
+                min_appearance_word,
+                min_appearance_ngram,
             )
             pmi.update(
                 PMI(word_counts, co_occurrence_counts, total_words, total_ngrams)
@@ -201,9 +264,11 @@ def suggest_ngrams(corpus: pd.Series, ngram_size: int = 4, stop_words: list = []
     return sug_ngrams
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     # Load data
-    corpus = pd.read_parquet("../../data/metadata/df_processed_full.parquet")["normalized_text"]
+    corpus = pd.read_parquet("../../data/metadata/df_processed_full.parquet")[
+        "normalized_text"
+    ]
     sug_ngrams_ng = suggest_ngrams(corpus, ngram_size=4)
     with open("../../data/ngrams/ngrams.txt", "w", encoding="utf-8") as f:
-        f.writelines([" ".join([n for n in ng])+"\n" for ng in sug_ngrams_ng])
+        f.writelines([" ".join([n for n in ng]) + "\n" for ng in sug_ngrams_ng])

@@ -78,9 +78,9 @@ class TextPreprocessor:
         )
         self._stopwords_regex_cased = regex.compile(pattern)
         pattern = (
-            r"(?<![a-zA-Z\u00C0-\u024F\d\-\·\.\'])(?:"
+            r"(?<![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])(?:"
             + "|".join(regex.escape(stopword) for stopword in self._stw_uncased)
-            + r")(?![a-zA-Z\u00C0-\u024F\d\-\·\.\'])"
+            + r")(?![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])"
         )
         self._stopwords_regex_uncased = regex.compile(pattern, regex.IGNORECASE)
 
@@ -157,10 +157,10 @@ class TextPreprocessor:
             raise ValueError("Minimum length must be at least 1.")
 
         pattern = (
-            f"(?<![a-zA-Z\u00C0-\u024F\d\-])"
+            f"(?<![a-zA-Z\u00C0-\u024F\d\-\_])"
             f"[a-zA-Z\u00C0-\u024F]"
-            f"(?:[a-zA-Z\u00C0-\u024F]|(?!\d{{4}})[\d]|[\-\·\.'](?![\-\·\.'])){{{min_len - 1},}}"
-            f"(?<![\-\·\.'])[a-zA-Z\u00C0-\u024F\d]?"
+            f"(?:[a-zA-Z\u00C0-\u024F]|(?!\d{{4}})[\d]|[\-\_\·\.'](?![\-\_\·\.\'])){{{min_len - 1},}}"
+            f"(?<![\-\_\·\.'])[a-zA-Z\u00C0-\u024F\d]?"
             f"(?![a-zA-Z\u00C0-\u024F\d])"
         )
         cleaned_text = regex.findall(pattern, text, flags=regex.UNICODE)
@@ -214,9 +214,9 @@ class TextPreprocessor:
                 stw = list(set([w.lower() for w in self.stopwords]))
             stw = sorted(stw, key=len, reverse=True)
             pattern = (
-                r"(?<![a-zA-Z\u00C0-\u024F\d\-])(?:"
+                r"(?<![a-zA-Z\u00C0-\u024F\d\-\_])(?:"
                 + "|".join(regex.escape(stopword) for stopword in stw)
-                + r")(?![a-zA-Z\u00C0-\u024F\d\-])"
+                + r")(?![a-zA-Z\u00C0-\u024F\d\-\_])"
             )
             self._stopwords_regex = regex.compile(pattern, regex.IGNORECASE)
         """
@@ -224,7 +224,13 @@ class TextPreprocessor:
         if fast:
             if isinstance(text, str):
                 filtered_text = text.split()
-            filtered_text = [w for w in filtered_text if w not in self.stopwords]
+            # filtered_text = [w for w in filtered_text if w not in self.stopwords]
+            filtered_text = [
+                w
+                for w in filtered_text
+                if (w not in self.stopwords)
+                and (all(el not in self.stopwords for el in w.split("-")))
+            ]
             if rtype == "str":
                 filtered_text = str(" ".join(filtered_text))
 

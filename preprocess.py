@@ -36,11 +36,11 @@ def save_df(df: pd.DataFrame, dir_df: Path):
 if __name__ == "__main__":
     # Options
     use_dask = True
-    subsample = 200_000
+    subsample = 500_000
     # pipe = ["merge_data", "lang_id", "normalization", "preprocess"]
     # pipe = ["preprocess"]
-    pipe = ["lang_id", "normalization", "preprocess"]
-    # pipe = ["preprocess"]
+    # pipe = ["lang_id", "normalization", "preprocess"]
+    pipe = ["preprocess"]
     merge_dfs = ["minors", "insiders", "outsiders"]
     lang = ["es"]
 
@@ -48,17 +48,16 @@ if __name__ == "__main__":
     dir_data = Path("data")
     dir_metadata = dir_data.joinpath("metadata")
     dir_stopwords = dir_data.joinpath("stopwords")
-    dir_ngrams = dir_data.joinpath("ngrams/ngrams.txt")
+    dir_ngrams = dir_data.joinpath("ngrams")
     dir_vocabulary = dir_data.joinpath("RAE/vocabulary_extended.json")
 
     dir_text_metadata = dir_metadata.joinpath("df_text.parquet")
-    dir_text_processed = dir_metadata.joinpath("df_processed_valid.parquet")
+    dir_text_processed = dir_metadata.joinpath("df_processed_pd.parquet")
 
     # Load data
     stop_words = load_stopwords(dir_stopwords, use_stopwords="all")
     vocabulary = load_vocabulary(dir_vocabulary)
-    with dir_ngrams.open("r", encoding="utf-8") as f:
-        ngrams = [el.strip() for el in f.readlines()]
+    ngrams = load_stopwords(dir_ngrams, use_stopwords="all")
 
     # Load data
     # case df_text is not (re)created
@@ -191,20 +190,26 @@ if __name__ == "__main__":
             )
 
             # Compute and save iteratively
-            step = 1_000
+            step = 10_000
             indices = range(len(df_processed_ids))
 
             # Skip columns already processed
             skip = 0
             if "preprocessed_text" in df_processed.columns:
-                skip = len(df_processed["preprocessed_text"].dropna().index)
-            t = trange(skip, len(df_processed_ids), step, desc="", leave=True)
-
+                skip = len(df_processed) - len(
+                    df_processed["preprocessed_text"].dropna().index
+                )
+            else:
+                df_processed["preprocessed_text"] = None
+            t = trange(0, skip, step, desc="", leave=True)
             if use_dask:
                 for i in t:
                     # t.set_description(f"")
                     # t.refresh()
-                    ids = df_processed.index.isin(df_processed_ids[i : i + step])
+                    # ids = df_processed.index.isin(df_processed_ids[i : i + step])
+                    ids = df_processed.loc[
+                        df_processed["preprocessed_text"].isna(), "preprocessed_text"
+                    ].index[i : i + step]
                     aux = dd.from_pandas(
                         df_processed.loc[ids][["text"]], npartitions=100
                     )
@@ -222,7 +227,10 @@ if __name__ == "__main__":
                 for i in t:
                     # t.set_description(f"")
                     # t.refresh()
-                    ids = df_processed_ids[i : i + step]
+                    # ids = df_processed_ids[i : i + step]
+                    ids = df_processed.loc[
+                        df_processed["preprocessed_text"].isna(), "preprocessed_text"
+                    ].index[i : i + step]
                     df_processed.loc[ids, "preprocessed_text"] = df_processed.loc[
                         ids, "text"
                     ].apply(preprocessor_full.preprocess)
