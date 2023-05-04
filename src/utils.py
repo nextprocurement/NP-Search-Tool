@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import List, Union
 
+from pandas import Series
+
 
 # Load Stopwords
 def load_stopwords(
@@ -46,3 +48,12 @@ def load_vocabulary(dir_vocabulary: Path):
     with dir_vocabulary.open("r", encoding="utf8") as f:
         vocabulary = json.load(f)
     return vocabulary
+
+
+def train_test_split(df: Series, frac=0.2):
+    """
+    Split a pd.Series into train and test samples.
+    """
+    test = df.sample(frac=frac, axis=0)
+    train = df.drop(index=test.index)
+    return train, test

@@ -9,7 +9,7 @@ from tqdm import trange
 from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
-from src.Utils.utils import load_stopwords, load_vocabulary
+from src.utils import load_stopwords, load_vocabulary
 
 random.seed(42)
 
@@ -190,7 +190,7 @@ if __name__ == "__main__":
             )
 
             # Compute and save iteratively
-            step = 10_000
+            step = 1_000
             indices = range(len(df_processed_ids))
 
             # Skip columns already processed

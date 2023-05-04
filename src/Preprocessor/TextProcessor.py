@@ -196,7 +196,7 @@ class TextPreprocessor:
         text: Union[List[str], str],
         rtype="str",
         ignore_case=True,
-        fast: bool = True,
+        # fast: bool = False,
     ):
         """
         If `fast`: check only words separated by space (" ").
@@ -221,37 +221,37 @@ class TextPreprocessor:
             self._stopwords_regex = regex.compile(pattern, regex.IGNORECASE)
         """
 
-        if fast:
-            if isinstance(text, str):
-                filtered_text = text.split()
-            # filtered_text = [w for w in filtered_text if w not in self.stopwords]
-            filtered_text = [
-                w
-                for w in filtered_text
-                if (w not in self.stopwords)
-                and (all(el not in self.stopwords for el in w.split("-")))
-            ]
-            if rtype == "str":
-                filtered_text = str(" ".join(filtered_text))
+        # if fast:
+        #     if isinstance(text, str):
+        #         filtered_text = text.split()
+        #     # filtered_text = [w for w in filtered_text if w not in self.stopwords]
+        #     filtered_text = [
+        #         w
+        #         for w in filtered_text
+        #         if (w not in self.stopwords)
+        #         and (all(el not in self.stopwords for el in w.split("-")))
+        #     ]
+        #     if rtype == "str":
+        #         filtered_text = str(" ".join(filtered_text))
 
-        else:
-            if isinstance(text, str):
-                if ignore_case:
-                    filtered_text = self._stopwords_regex_uncased.sub("", text)
-                else:
-                    filtered_text = self._stopwords_regex_cased.sub("", text)
-                filtered_text = self.remove_extra_spaces(filtered_text, rtype="str")
-                if rtype == "list":
-                    filtered_text = filtered_text.split()
+        # else:
+        if isinstance(text, str):
+            if ignore_case:
+                filtered_text = self._stopwords_regex_uncased.sub("", text)
             else:
-                if ignore_case:
-                    filtered_text = [
-                        el for el in text if el.lower() not in self._stw_uncased
-                    ]
-                else:
-                    filtered_text = [el for el in text if el not in self._stw_cased]
-                if rtype == "str":
-                    filtered_text = " ".join(filtered_text)
+                filtered_text = self._stopwords_regex_cased.sub("", text)
+            filtered_text = self.remove_extra_spaces(filtered_text, rtype="str")
+            if rtype == "list":
+                filtered_text = filtered_text.split()
+        else:
+            if ignore_case:
+                filtered_text = [
+                    el for el in text if el.lower() not in self._stw_uncased
+                ]
+            else:
+                filtered_text = [el for el in text if el not in self._stw_cased]
+            if rtype == "str":
+                filtered_text = " ".join(filtered_text)
         return filtered_text
 
     def correct_spelling(self, text: str, rtype="str"):

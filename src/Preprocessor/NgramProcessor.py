@@ -168,34 +168,31 @@ def compute_pmi_ngram_corpus(
         PMI of ngrams
     """
     pmi = {}
+    word_counts = {}
+    co_occurrence_counts = {}
+    total_words = 0
+    total_ngrams = 0
     if isinstance(n, int):
         word_counts, co_occurrence_counts = _compute_ngram_counts(corpus, n)
-        (
-            word_counts,
-            co_occurrence_counts,
-            total_words,
-            total_ngrams,
-        ) = _filter_co_appearance(
-            word_counts, co_occurrence_counts, min_appearance_word, min_appearance_ngram
-        )
-        pmi = PMI(word_counts, co_occurrence_counts, total_words, total_ngrams)
     else:
         for el in n:
-            word_counts, co_occurrence_counts = _compute_ngram_counts(corpus, el)
-            (
-                word_counts,
-                co_occurrence_counts,
-                total_words,
-                total_ngrams,
-            ) = _filter_co_appearance(
-                word_counts,
-                co_occurrence_counts,
-                min_appearance_word,
-                min_appearance_ngram,
+            wc, cc = _compute_ngram_counts(corpus, el)
+            wc, cc, tw, tn = _filter_co_appearance(
+                wc, cc, min_appearance_word, min_appearance_ngram
             )
-            pmi.update(
-                PMI(word_counts, co_occurrence_counts, total_words, total_ngrams)
-            )
+            word_counts = {**word_counts, **wc}
+            co_occurrence_counts = {**co_occurrence_counts, **cc}
+            total_words += tw
+            total_ngrams += tn
+    (
+        word_counts,
+        co_occurrence_counts,
+        total_words,
+        total_ngrams,
+    ) = _filter_co_appearance(
+        word_counts, co_occurrence_counts, min_appearance_word, min_appearance_ngram
+    )
+    pmi = PMI(word_counts, co_occurrence_counts, total_words, total_ngrams)
     return pmi
 
 
@@ -206,7 +203,7 @@ def replace_ngrams(text: str, ngrams: dict = {}, ngram_size: int = 4):
     words = text
     if not ngram_size:
         ngram_size = max([len(k) for k in ngrams.keys()])
-    for i in list(range(2, ngram_size + 1))[::-1]:
+    for i in range(ngram_size, 1, -1):
         words = words.split()
         tuples = find_ngrams(words, i, pad_right=True)
         result = []
