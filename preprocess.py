@@ -11,8 +11,6 @@ from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
 from src.utils import load_stopwords, load_vocabulary
 
-random.seed(42)
-
 
 def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
     df = None
@@ -36,7 +34,7 @@ def save_df(df: pd.DataFrame, dir_df: Path):
 if __name__ == "__main__":
     # Options
     use_dask = True
-    subsample = 500_000
+    subsample = 300_000
     # pipe = ["merge_data", "lang_id", "normalization", "preprocess"]
     # pipe = ["preprocess"]
     # pipe = ["lang_id", "normalization", "preprocess"]
@@ -66,32 +64,21 @@ if __name__ == "__main__":
             # dir_text_processed already exists and can be used
             if dir_text_processed.exists():
                 df_processed = load_df(dir_text_processed)
-
-                if subsample:
-                    if dir_text_metadata.exists():
-                        df_text = load_df(dir_text_metadata)
-                        df_processed_ids = random.sample(list(df_text.index), subsample)
-                    else:
-                        df_processed_ids = df_processed.index
-                else:
-                    df_processed_ids = df_processed.index
-
             else:
                 # df_text already exists?
                 if not dir_text_metadata.exists():
                     print(
-                        f"Error: '{dir_text_metadata}' does not exist. Create it first."
+                        f"Error: '{dir_text_metadata}' does not exist. Create it first (call 'merge_data')."
                     )
                     exit()
                 else:
                     df_text = load_df(dir_text_metadata)
                     df_text = df_text[df_text["text"].apply(lambda x: len(x) > 20)]
                     if subsample:
-                        df_processed_ids = random.sample(list(df_text.index), subsample)
-                        df_processed = df_text.loc[df_text.index.isin(df_processed_ids)]
+                        df_processed = df_text.sample(n=subsample, random_state=42)
                     else:
-                        df_processed_ids = df_text.index
                         df_processed = df_text
+            df_processed_ids = df_processed.index
 
     # Number of processing steps
     n_proc = len(pipe) - 1
@@ -144,26 +131,48 @@ if __name__ == "__main__":
                     "lowercase",
                     "remove_urls",
                     ("clean_text", {"min_len": 1}),
-                    "convert_ngrams",
+                    # "convert_ngrams",
                 ],
-                ngrams=ngrams,
+                # ngrams=ngrams,
             )
 
+            # Compute and save iteratively
+            step = 10_000
+            indices = range(len(df_processed_ids))
+
+            # Skip columns already processed
+            skip = 0
+            if "normalized_text" in df_processed.columns:
+                skip = df_processed["normalized_text"].dropna().size
+            else:
+                df_processed["normalized_text"] = None
+            t = trange(skip, len(df_processed), step, desc="", leave=True)
+
             if use_dask:
-                ids = df_processed.index.isin(df_processed_ids)
-                aux = dd.from_pandas(df_processed.loc[ids][["text"]], npartitions=100)
-                aux["normalized_text"] = aux["text"].apply(
-                    preprocessor_normalizer.preprocess, meta=(None, "object")
-                )
-                aux = aux.compute()["normalized_text"]
-                df_processed.loc[aux.index, "normalized_text"] = aux
+                for i in t:
+                    ids = df_processed.index.isin(df_processed_ids[i : i + step])
+                    aux = dd.from_pandas(
+                        df_processed.loc[ids][["text"]], npartitions=100
+                    )
+                    aux["normalized_text"] = aux["text"].apply(
+                        preprocessor_normalizer.preprocess, meta=(None, "object")
+                    )
+                    aux = aux.compute()["normalized_text"]
+                    df_processed.loc[aux.index, "normalized_text"] = aux
+                    # Save
+                    save_df(df_processed, dir_text_processed)
+                    df_processed = load_df(dir_text_processed)
 
             else:
-                df_processed.loc[
-                    df_processed_ids, "normalized_text"
-                ] = df_processed.loc[df_processed_ids, "text"].apply(
-                    preprocessor_normalizer.preprocess
-                )
+                for i in t:
+                    df_processed.loc[
+                        df_processed_ids[i : i + step], "normalized_text"
+                    ] = df_processed.loc[df_processed_ids[i : i + step], "text"].apply(
+                        preprocessor_normalizer.preprocess
+                    )
+                    # Save
+                    save_df(df_processed, dir_text_processed)
+                    df_processed = load_df(dir_text_processed)
 
             # Save
             save_df(df_processed, dir_text_processed)
@@ -196,20 +205,18 @@ if __name__ == "__main__":
             # Skip columns already processed
             skip = 0
             if "preprocessed_text" in df_processed.columns:
-                skip = len(df_processed) - len(
-                    df_processed["preprocessed_text"].dropna().index
-                )
+                skip = df_processed["preprocessed_text"].dropna().size
             else:
                 df_processed["preprocessed_text"] = None
-            t = trange(0, skip, step, desc="", leave=True)
+            t = trange(skip, len(df_processed), step, desc="", leave=True)
             if use_dask:
                 for i in t:
                     # t.set_description(f"")
                     # t.refresh()
-                    # ids = df_processed.index.isin(df_processed_ids[i : i + step])
-                    ids = df_processed.loc[
-                        df_processed["preprocessed_text"].isna(), "preprocessed_text"
-                    ].index[i : i + step]
+                    ids = df_processed.index.isin(df_processed_ids[i : i + step])
+                    # ids = df_processed.loc[
+                    #     df_processed["preprocessed_text"].isna(), "preprocessed_text"
+                    # ].index[i : i + step]
                     aux = dd.from_pandas(
                         df_processed.loc[ids][["text"]], npartitions=100
                     )
