@@ -65,28 +65,30 @@ class TextPreprocessor:
             )  # es_core_news_lg | es_dep_news_trf
 
         # Stopword definition
-        self.stopwords = set(stopwords)
+        if stopwords:
+            self.stopwords = set(stopwords)
 
-        self._stw_cased = sorted(list(set(self.stopwords)), key=len, reverse=True)
-        self._stw_uncased = sorted(
-            list(set([w.lower() for w in self.stopwords])), key=len, reverse=True
-        )
-        pattern = (
-            r"(?<![a-zA-Z\u00C0-\u024F\d\-\·\.\'])(?:"
-            + "|".join(regex.escape(stopword) for stopword in self._stw_cased)
-            + r")(?![a-zA-Z\u00C0-\u024F\d\-\·\.\'])"
-        )
-        self._stopwords_regex_cased = regex.compile(pattern)
-        pattern = (
-            r"(?<![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])(?:"
-            + "|".join(regex.escape(stopword) for stopword in self._stw_uncased)
-            + r")(?![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])"
-        )
-        self._stopwords_regex_uncased = regex.compile(pattern, regex.IGNORECASE)
+            self._stw_cased = sorted(list(set(self.stopwords)), key=len, reverse=True)
+            self._stw_uncased = sorted(
+                list(set([w.lower() for w in self.stopwords])), key=len, reverse=True
+            )
+            pattern = (
+                r"(?<![a-zA-Z\u00C0-\u024F\d\-\·\.\'])(?:"
+                + "|".join(regex.escape(stopword) for stopword in self._stw_cased)
+                + r")(?![a-zA-Z\u00C0-\u024F\d\-\·\.\'])"
+            )
+            self._stopwords_regex_cased = regex.compile(pattern)
+            pattern = (
+                r"(?<![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])(?:"
+                + "|".join(regex.escape(stopword) for stopword in self._stw_uncased)
+                + r")(?![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])"
+            )
+            self._stopwords_regex_uncased = regex.compile(pattern, regex.IGNORECASE)
 
         # Ngrams
-        self.ngrams = {tuple(el.split()): el.replace(" ", "-") for el in ngrams}
-        self._ngram_size = max([len(k) for k in self.ngrams.keys()])
+        if ngrams:
+            self.ngrams = {tuple(el.split()): el.replace(" ", "-") for el in ngrams}
+            self._ngram_size = max([len(k) for k in self.ngrams.keys()])
 
     def __repr__(self):
         return f"TextPreprocessor(methods={self.methods})"

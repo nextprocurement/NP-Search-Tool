@@ -91,31 +91,32 @@ def _filter_co_appearance(
     valid_vocab = set(word_counts.keys())
     valid_ngrams = set(ngrams.keys())
 
-    if min_appearance_word:
-        valid_vocab = set(
-            [w for w in valid_vocab if word_counts[w] >= min_appearance_word]
-        )
-    if min_appearance_ngram:
+    if min_appearance_word or min_appearance_ngram:
+        if min_appearance_word:
+            valid_vocab = set(
+                [w for w in valid_vocab if word_counts[w] >= min_appearance_word]
+            )
+        if min_appearance_ngram:
+            valid_ngrams = set(
+                [ng for ng in valid_ngrams if ngrams[ng] >= min_appearance_ngram]
+            )
+
+        # Get common vocabulary that satisfies both options
+        valid_ngram_vocab = []
+        for el in valid_ngrams:
+            valid_ngram_vocab.extend(el)
+        valid_ngram_vocab = set(valid_ngram_vocab)
+
+        # Filter final elements
+        valid_vocab = valid_vocab & valid_ngram_vocab
         valid_ngrams = set(
-            [ng for ng in valid_ngrams if ngrams[ng] >= min_appearance_ngram]
+            [ng for ng in valid_ngrams if all([el in valid_vocab for el in ng])]
         )
-
-    # Get common vocabulary that satisfies both options
-    valid_ngram_vocab = []
-    for el in valid_ngrams:
-        valid_ngram_vocab.extend(el)
-    valid_ngram_vocab = set(valid_ngram_vocab)
-
-    # Filter final elements
-    valid_vocab = valid_vocab & valid_ngram_vocab
-    valid_ngrams = set(
-        [ng for ng in valid_ngrams if all([el in valid_vocab for el in ng])]
-    )
-    valid_ngram_vocab = []
-    for el in valid_ngrams:
-        valid_ngram_vocab.extend(el)
-    valid_ngram_vocab = set(valid_ngram_vocab)
-    valid_vocab = valid_vocab & valid_ngram_vocab
+        valid_ngram_vocab = []
+        for el in valid_ngrams:
+            valid_ngram_vocab.extend(el)
+        valid_ngram_vocab = set(valid_ngram_vocab)
+        valid_vocab = valid_vocab & valid_ngram_vocab
 
     # Output
     word_counts = {v: word_counts[v] for v in valid_vocab}
