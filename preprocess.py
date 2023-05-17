@@ -5,6 +5,7 @@ from typing import List, Union
 
 import dask.dataframe as dd
 import pandas as pd
+import yaml
 from tqdm import trange
 
 from src.Preprocessor.LanguageDetector import LanguageDetector
@@ -33,30 +34,71 @@ def save_df(df: pd.DataFrame, dir_df: Path):
 
 #  Process text
 if __name__ == "__main__":
-    # Options
-    use_dask = True
-    subsample = 300_000
-    # pipe = ["merge_data", "lang_id", "normalization", "preprocess"]
-    # pipe = ["preprocess"]
-    # pipe = ["lang_id", "normalization", "preprocess"]
-    pipe = ["preprocess"]
-    merge_dfs = ["minors", "insiders", "outsiders"]
-    lang = ["es"]
+    parser = argparse.ArgumentParser(description="Process options")
+    parser.add_argument(
+        "--options", default="config/options.yaml", help="Path to options YAML file"
+    )
+    args = parser.parse_args()
+
+    with open(args.options, "r") as f:
+        options = dict(yaml.safe_load(f))
+
+    # Access options
+    use_dask = options["use_dask"]
+    subsample = options["subsample"]
+    pipe = options["pipe"]
+    merge_dfs = options["merge_dfs"]
+    lang = options["lang"]
 
     # Define directories
-    dir_data = Path("data")
-    dir_metadata = dir_data.joinpath("metadata")
-    dir_stopwords = dir_data.joinpath("stopwords")
-    dir_ngrams = dir_data.joinpath("ngrams")
-    dir_vocabulary = dir_data.joinpath("RAE/vocabulary_extended.json")
-
-    dir_text_metadata = dir_metadata.joinpath("df_text.parquet")
-    dir_text_processed = dir_metadata.joinpath("df_processed_pd.parquet")
+    # Set default values if not provided in the YAML file
+    dir_data = Path(options.get("dir_data", "data"))
+    dir_metadata = Path(options.get("dir_metadata", f"{dir_data}/metadata"))
+    dir_stopwords = Path(options.get("dir_stopwords", f"{dir_data}/stopwords"))
+    dir_ngrams = Path(options.get("dir_ngrams", f"{dir_data}/ngrams"))
+    # Files directories
+    dir_vocabulary = Path(
+        options.get("dir_vocabulary", f"{dir_data}/RAE/vocabulary_extended.json")
+    )
+    dir_text_metadata = Path(
+        options.get("dir_text_metadata", f"{dir_metadata}/df_text.parquet")
+    )
+    dir_text_processed = Path(
+        options.get("dir_text_processed", f"{dir_metadata}/df_processed_pd.parquet")
+    )
+    # List loading options
+    use_stopwords = options.get("use_stopwords", "all")
+    use_ngrams = options.get("use_stopwords", "all")
 
     # Load data
     stop_words = load_item_list(dir_stopwords, use_item_list=use_stopwords)
     ngrams = load_item_list(dir_ngrams, use_item_list=use_ngrams)
     vocabulary = load_vocabulary(dir_vocabulary)
+
+    # # Options
+    # use_dask = True
+    # subsample = 500_000
+    # # pipe = ["merge_data", "lang_id", "normalization", "preprocess"]
+    # # pipe = ["preprocess"]
+    # pipe = ["lang_id", "normalization", "preprocess"]
+    # # pipe = ["preprocess"]
+    # merge_dfs = ["minors", "insiders", "outsiders"]
+    # lang = ["es"]
+
+    # # Define directories
+    # dir_data = Path("data")
+    # dir_metadata = dir_data.joinpath("metadata")
+    # dir_stopwords = dir_data.joinpath("stopwords")
+    # dir_ngrams = dir_data.joinpath("ngrams")
+    # dir_vocabulary = dir_data.joinpath("RAE/vocabulary_extended.json")
+
+    # dir_text_metadata = dir_metadata.joinpath("df_text.parquet")
+    # dir_text_processed = dir_metadata.joinpath("df_processed_pd.parquet")
+
+    # # Load data
+    # stop_words = load_item_list(dir_stopwords, use_stopwords="all")
+    # vocabulary = load_vocabulary(dir_vocabulary)
+    # ngrams = load_item_list(dir_ngrams, use_stopwords="all")
 
     # Load data
     # case df_text is not (re)created

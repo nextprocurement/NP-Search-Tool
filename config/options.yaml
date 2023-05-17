@@ -1,0 +1,34 @@
+# Options
+use_dask: true
+subsample: 500000
+pipe:
+  # - merge_data
+  # - lang_id
+  # - normalization
+  - preprocess
+merge_dfs:
+  - minors
+  - insiders
+  - outsiders
+lang:
+  - es
+
+# Define directories
+dir_data: data
+dir_metadata: data/metadata
+dir_stopwords: data/stopwords
+dir_ngrams: data/ngrams
+dir_vocabulary: data/RAE/vocabulary_extended.json
+dir_text_metadata: data/metadata/df_text.parquet
+dir_text_processed: data/metadata/df_processed_pd.parquet
+
+# List loading options
+# Use list or string. If "all", every file in the directory will be used.
+use_stopwords: all
+  # - administración.txt
+  # - common_stopwords.txt
+  # - municipios.txt
+use_ngrams: all
+  # - expresiones_ngrams.txt
+  # - ngrams.txt
+  # - proposed_ngrams.txt
