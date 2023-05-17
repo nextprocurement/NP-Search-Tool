@@ -1,3 +1,4 @@
+import argparse
 import random
 from pathlib import Path
 from typing import List, Union
@@ -9,7 +10,7 @@ from tqdm import trange
 from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
-from src.utils import load_stopwords, load_vocabulary
+from src.utils import load_item_list, load_vocabulary
 
 
 def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
@@ -53,9 +54,9 @@ if __name__ == "__main__":
     dir_text_processed = dir_metadata.joinpath("df_processed_pd.parquet")
 
     # Load data
-    stop_words = load_stopwords(dir_stopwords, use_stopwords="all")
+    stop_words = load_item_list(dir_stopwords, use_item_list=use_stopwords)
+    ngrams = load_item_list(dir_ngrams, use_item_list=use_ngrams)
     vocabulary = load_vocabulary(dir_vocabulary)
-    ngrams = load_stopwords(dir_ngrams, use_stopwords="all")
 
     # Load data
     # case df_text is not (re)created

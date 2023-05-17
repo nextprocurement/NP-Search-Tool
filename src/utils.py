@@ -5,43 +5,45 @@ from typing import List, Union
 from pandas import Series
 
 
-# Load Stopwords
-def load_stopwords(
-    dir_stopwords: Path,
-    use_stopwords: Union[str, List[str]] = [
+# Load item_list
+def load_item_list(
+    dir_item_list: Path,
+    use_item_list: Union[str, List[str]] = [
         "administración",
         "municipios",
-        "common_stopwords",
+        "common_item_list",
     ],
 ):
-    stop_words = {}
-    if not use_stopwords:
-        return stop_words
+    item_list = []
+    if not use_item_list:
+        return item_list
 
-    if isinstance(use_stopwords, str):
-        if use_stopwords == "all":
-            use_stopwords = [el.stem for el in dir_stopwords.iterdir() if el.is_file()]
+    if isinstance(use_item_list, str):
+        if use_item_list == "all":
+            use_item_list = [el.stem for el in dir_item_list.iterdir() if el.is_file()]
         else:
-            use_stopwords = [use_stopwords]
+            use_item_list = [use_item_list]
 
-    for el in use_stopwords:
-        with dir_stopwords.joinpath(f"{el}.txt").open("r", encoding="utf-8") as f:
-            stop_words = {*stop_words, *set([w.strip() for w in f.readlines()])}
+    for el in use_item_list:
+        with dir_item_list.joinpath(f"{el}.txt").open("r", encoding="utf-8") as f:
+            # item_list = {*item_list, *set([w.strip() for w in f.readlines()])}
+            item_list.extend([w.strip() for w in f.readlines()])
+    item_list = set(item_list)
 
-    # stop_words = list(
+    # item_list = list(
     #     set(
-    #         list(stop_words)
-    #         + [w.lower() for w in stop_words]
-    #         + [w.upper() for w in stop_words]
-    #         + [" ".join([el.capitalize() for el in w.split()]) for w in stop_words]
+    #         list(item_list)
+    #         + [w.lower() for w in item_list]
+    #         + [w.upper() for w in item_list]
+    #         + [" ".join([el.capitalize() for el in w.split()]) for w in item_list]
     #     )
     # )
-    stop_words.update(set([w.lower() for w in stop_words]))
-    stop_words.update(set([w.replace(" ", "-") for w in stop_words]))
-    stop_words = list(stop_words)
+    item_list.update(set([w.lower() for w in item_list]))
+    item_list.update(set([w.replace(" ", "-") for w in item_list]))
+    item_list = list(item_list)
 
-    stop_words = sorted(stop_words, key=len, reverse=True)
-    return stop_words
+    item_list = sorted(item_list, key=len, reverse=True)
+    return item_list
 
 
 def load_vocabulary(dir_vocabulary: Path):

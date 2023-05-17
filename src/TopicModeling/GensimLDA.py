@@ -4,7 +4,7 @@ from gensim.models import LdaModel, LdaMulticore
 from tqdm import trange
 
 from src.Preprocessor.NgramProcessor import PMI
-from src.utils import load_stopwords, load_vocabulary
+from src.utils import load_item_list, load_vocabulary
 
 from .BaseModel import BaseModel
 
