@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 import tomotopy as tp
 from tqdm import trange
@@ -6,7 +8,11 @@ from .BaseModel import BaseModel
 
 
 class TomotopyCTModel(BaseModel):
-    def train(self, texts, iterations=400):
+    def train(self, texts: List[str], num_topics: int, iterations=400):
+        # Set num topics
+        self.num_topics = num_topics
+
+        # Set model
         self.model = tp.CTModel(k=self.num_topics, min_cf=0, min_df=10, seed=42)
         texts = [t.split() for t in texts]
         for text in texts:
@@ -18,13 +24,13 @@ class TomotopyCTModel(BaseModel):
             t.refresh()
             self.model.train(10)
 
-    def predict(self, texts):
+    def predict(self, texts: List[str]):
         texts = [t.split() for t in texts]
         doc_inst = [self.model.make_doc(text) for text in texts]
         topic_prob, log_ll = self.model.infer(doc_inst)
         return np.array(topic_prob)
 
-    def get_topics_words(self, n_words=10):
+    def get_topics_words(self, n_words: int = 10):
         topics = []
         for topic_idx in range(self.num_topics):
             top_words = [

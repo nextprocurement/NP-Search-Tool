@@ -1,3 +1,5 @@
+from typing import List, Union
+
 from bertopic import BERTopic
 from bertopic.representation import MaximalMarginalRelevance
 from bertopic.vectorizers import ClassTfidfTransformer
@@ -13,15 +15,19 @@ from .BaseModel import BaseModel
 class BERTopicModel(BaseModel):
     def train(
         self,
-        texts,
-        embedding_model=None,
-        umap_model=None,
-        hdbscan_model=None,
-        vectorizer_model=None,
-        ctfidf_model=None,
-        representation_model=None,
+        texts: List[str],
+        num_topics: int,
+        embedding_model: Union[str, SentenceTransformer, None] = None,
+        umap_model: Union[UMAP, None] = None,
+        hdbscan_model: Union[HDBSCAN, None] = None,
+        vectorizer_model: Union[CountVectorizer, TfidfVectorizer, None] = None,
+        ctfidf_model: Union[ClassTfidfTransformer, None] = None,
+        representation_model: Union[MaximalMarginalRelevance, None] = None,
         verbose=True,
     ):
+        # Set num topics
+        self.num_topics = num_topics
+
         # Step 1 - Extract embeddings
         if embedding_model:
             self.embedding_model = embedding_model

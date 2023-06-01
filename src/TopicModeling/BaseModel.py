@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from collections import Counter
 from itertools import combinations
+from pathlib import Path
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -13,8 +15,20 @@ from src.Preprocessor.NgramProcessor import PMI
 
 
 class BaseModel:
-    def __init__(self, num_topics, stop_words=[], word_min_len=2):
-        self.num_topics = num_topics
+    def __init__(
+        self,
+        model_dir: Union[str, Path],
+        stop_words: list = [],
+        word_min_len: int = 2,
+    ):
+        """
+        model_dir: str|Path
+            Directory where model will be saved
+
+        """
+        self.model_dir = Path(model_dir)
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+        self.num_topics = None
         self.stop_words = stop_words
         self.word_pattern = (
             f"(?<![a-zA-Z\u00C0-\u024F\d\-\_])"
@@ -36,13 +50,13 @@ class BaseModel:
         pass
 
     @abstractmethod
-    def get_topics_words(self, n_words: int = 10) -> list:
+    def get_topics_words(self, n_words: int = 10) -> List[List[str]]:
         """
         Get a list of `n_words` for each topic.
         """
         pass
 
-    def get_topic_words(self, topic: int, n_words: int = 10) -> list:
+    def get_topic_words(self, topic: int, n_words: int = 10) -> List[str]:
         """
         Get a list of `n_words` for the selected topic.
         """
@@ -64,7 +78,7 @@ class BaseModel:
         df_doc_topics.index.name = "Document"
         return df_doc_topics
 
-    def get_topics_diversity(self, n_words=20):
+    def get_topics_diversity(self, n_words=20) -> float:
         topic_words = self.get_topics_words(n_words=n_words)
         unique_words = len(set([word for topic in topic_words for word in topic]))
         return unique_words / (self.num_topics * n_words)

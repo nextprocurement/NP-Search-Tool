@@ -1,4 +1,4 @@
-from typing import Union
+from typing import List, Union
 
 from sklearn.decomposition import NMF
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -10,11 +10,16 @@ from .BaseModel import BaseModel
 class NMFModel(BaseModel):
     def train(
         self,
-        texts,
+        texts: List[str],
+        num_topics: int,
         vectorizer: Union[str, TfidfVectorizer, CountVectorizer] = "tfidf",
         max_df: float = 0.8,
         min_df: Union[float, int] = 1,
     ):
+        # Set num topics
+        self.num_topics = num_topics
+
+        # Set vectorizer
         if vectorizer == "tfidf":
             vectorizer = TfidfVectorizer(
                 token_pattern=self.word_pattern,
@@ -38,11 +43,11 @@ class NMFModel(BaseModel):
         tfidf = self.vectorizer.fit_transform(texts)
         self.model = NMF(n_components=self.num_topics, random_state=42).fit(tfidf)
 
-    def predict(self, texts):
+    def predict(self, texts: List[str]):
         tfidf = self.vectorizer.transform(texts)
         return self.model.transform(tfidf)
 
-    def get_topics_words(self, n_words=10):
+    def get_topics_words(self, n_words: int = 10):
         feature_names = self.vectorizer.get_feature_names_out()
         topics = []
         for topic_idx, topic in enumerate(self.model.components_):

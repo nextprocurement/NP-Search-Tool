@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Dict
 
 from pandas import Series
 
@@ -13,7 +13,7 @@ def load_item_list(
         "municipios",
         "common_item_list",
     ],
-):
+) -> List[str]:
     item_list = []
     if not use_item_list:
         return item_list
@@ -46,7 +46,7 @@ def load_item_list(
     return item_list
 
 
-def load_vocabulary(dir_vocabulary: Path):
+def load_vocabulary(dir_vocabulary: Path) -> Dict[str, str]:
     with dir_vocabulary.open("r", encoding="utf8") as f:
         vocabulary = json.load(f)
     return vocabulary

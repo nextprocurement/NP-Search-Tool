@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 from gensim.corpora import Dictionary
 from gensim.models import LdaModel, LdaMulticore
@@ -10,7 +12,11 @@ from .BaseModel import BaseModel
 
 
 class GensimLDAModel(BaseModel):
-    def train(self, texts, iterations=400):
+    def train(self, texts: List[str], num_topics: int, iterations=400):
+        # Set num topics
+        self.num_topics = num_topics
+        
+        # Convert texts to format
         texts = [t.split() for t in texts]
         self.dictionary = Dictionary(texts)
         corpus = [self.dictionary.doc2bow(text) for text in texts]
@@ -22,7 +28,8 @@ class GensimLDAModel(BaseModel):
             random_state=42,
         )
 
-    def predict(self, texts):
+    def predict(self, texts: List[str]):
+        # Convert texts to format
         texts = [t.split() for t in texts]
         corpus = [self.dictionary.doc2bow(text) for text in texts]
         pred = np.zeros(shape=(len(texts), 50))
@@ -31,7 +38,7 @@ class GensimLDAModel(BaseModel):
                 pred[d][topic_idx] = topic_prob
         return pred
 
-    def get_topics_words(self, n_words=10):
+    def get_topics_words(self, n_words: int = 10):
         topics = []
         for topic_idx in range(self.model.num_topics):
             top_words = [
