@@ -51,21 +51,24 @@ WORKDIR /app
 # Copy the requirements file into the container
 COPY requirements.txt .
 
-# Install the requirements
+# Upgrade pip
 RUN pip install --upgrade pip
+
 # Install additional dependencies for HDBSCAN
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenblas-dev \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
 # Install HDBSCAN
-# RUN pip install --no-cache-dir hdbscan
 RUN pip install hdbscan
+
 # Install pytorch
 # RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 RUN pip install torch torchvision torchaudio
-# RUN echo "cache buster: $(date)" > cache_buster
+
+# Install requirements
 RUN pip install -r requirements.txt
 RUN python -m pip install "dask[dataframe]" --upgrade
 RUN python -m spacy download es_dep_news_trf
@@ -107,5 +110,3 @@ CMD ["/bin/bash"]
 #     --rm \
 #     -v ./data/:/app/data/ \
 #     next_proc
-
-# docker run --gpus all --name tm --rm -it -v C:\Users\josea\Documents\Trabajo\data:/app/data np_tp
