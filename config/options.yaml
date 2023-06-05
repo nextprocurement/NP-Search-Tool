@@ -1,34 +1,41 @@
 # Options
-use_dask: true
-subsample: 500000
-pipe:
-  # - merge_data
-  # - lang_id
-  # - normalization
-  - preprocess
-merge_dfs:
+use_dask: false  # Whether to use Dask for distributed computing. Set to 'true' if you have a Dask cluster.
+
+subsample: 10000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
+
+pipe:  # The steps to be taken in the pipeline. Order matters!
+  - merge_data      # Merges data from different sources
+  - lang_id         # Identifies the language of the text
+  - normalization   # Normalizes the text (lowercase, some punctuation, urls, etc.)
+  - preprocess      # Preprocesses the data for further analysis
+
+merge_dfs:  # DataFrames to be merged in the 'merge_data' step.
   - minors
   - insiders
   - outsiders
-lang:
+
+lang:  # Languages to consider in 'lang_id' step. Can be multiple.
   - es
 
 # Define directories
-dir_data: data
-dir_metadata: data/metadata
-dir_stopwords: data/stopwords
-dir_ngrams: data/ngrams
-dir_vocabulary: data/RAE/vocabulary_extended.json
-dir_text_metadata: data/metadata/df_text.parquet
-dir_text_processed: data/metadata/df_processed_pd.parquet
+# Modify these paths to fit your directory structure
+# This is the default configuration for docker image
+dir_data: /app/data  # Root data directory
+dir_metadata: /app/data/metadata  # Directory for metadata
+dir_stopwords: /app/data/stopwords  # Directory for stopwords
+dir_ngrams: /app/data/ngrams  # Directory for ngrams
+dir_vocabulary: /app/data/RAE/vocabulary_extended.json  # Path to extended vocabulary JSON
+
+dir_text_metadata: /app/data/metadata/df_text.parquet  # Path to text metadata parquet file
+dir_text_processed: /app/data/metadata/df_processed_pd.parquet  # Path to processed text metadata parquet file
 
 # List loading options
-# Use list or string. If "all", every file in the directory will be used.
-use_stopwords: all
+# Modify these values to choose which stopwords and ngrams to use. If "all", every file in the directory will be used.
+use_stopwords: all  # Which stopwords to use
   # - administración.txt
   # - common_stopwords.txt
   # - municipios.txt
-use_ngrams: all
+use_ngrams: all  # Which ngrams to use
   # - expresiones_ngrams.txt
   # - ngrams.txt
   # - proposed_ngrams.txt
