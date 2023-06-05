@@ -1,3 +1,4 @@
+import logging
 from abc import abstractmethod
 from collections import Counter
 from itertools import combinations
@@ -20,12 +21,20 @@ class BaseModel:
         model_dir: Union[str, Path],
         stop_words: list = [],
         word_min_len: int = 2,
+        logger:logging.Logger=None,
     ):
         """
         model_dir: str|Path
             Directory where model will be saved
 
         """
+        # Set logger
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger(__name__)
+
+        # Model params
         self.model_dir = Path(model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.num_topics = None

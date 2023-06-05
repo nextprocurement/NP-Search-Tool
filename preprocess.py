@@ -1,4 +1,5 @@
 import argparse
+import logging
 import random
 from pathlib import Path
 from typing import List, Union
@@ -32,8 +33,36 @@ def save_df(df: pd.DataFrame, dir_df: Path):
     df.to_parquet(dir_df, engine="pyarrow")
 
 
+def set_logger(console_log=True, file_log=True):
+    # Set up the logger
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    # Create console handler
+    if console_log:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+
+    # Create file handler
+    if file_log:
+        file_handler = logging.FileHandler("app.log", encoding="utf-8")
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    # logger.info("Log created.")
+    return logger
+
+
 #  Process text
 if __name__ == "__main__":
+    # Set logger
+    logger = set_logger(console_log=True, file_log=True)
+
+    # Parse args
     parser = argparse.ArgumentParser(description="Process options")
     parser.add_argument(
         "--options", default="config/options.yaml", help="Path to options YAML file"
@@ -75,31 +104,6 @@ if __name__ == "__main__":
     ngrams = load_item_list(dir_ngrams, use_item_list=use_ngrams)
     vocabulary = load_vocabulary(dir_vocabulary)
 
-    # # Options
-    # use_dask = True
-    # subsample = 500_000
-    # # pipe = ["merge_data", "lang_id", "normalization", "preprocess"]
-    # # pipe = ["preprocess"]
-    # pipe = ["lang_id", "normalization", "preprocess"]
-    # # pipe = ["preprocess"]
-    # merge_dfs = ["minors", "insiders", "outsiders"]
-    # lang = ["es"]
-
-    # # Define directories
-    # dir_data = Path("data")
-    # dir_metadata = dir_data.joinpath("metadata")
-    # dir_stopwords = dir_data.joinpath("stopwords")
-    # dir_ngrams = dir_data.joinpath("ngrams")
-    # dir_vocabulary = dir_data.joinpath("RAE/vocabulary_extended.json")
-
-    # dir_text_metadata = dir_metadata.joinpath("df_text.parquet")
-    # dir_text_processed = dir_metadata.joinpath("df_processed_pd.parquet")
-
-    # # Load data
-    # stop_words = load_item_list(dir_stopwords, use_stopwords="all")
-    # vocabulary = load_vocabulary(dir_vocabulary)
-    # ngrams = load_item_list(dir_ngrams, use_stopwords="all")
-
     # Load data
     # case df_text is not (re)created
     if not "merge_data" in pipe:
@@ -118,6 +122,11 @@ if __name__ == "__main__":
                     df_text = load_df(dir_text_metadata)
                     df_text = df_text[df_text["text"].apply(lambda x: len(x) > 20)]
                     if subsample:
+                        if subsample > len(df_text):
+                            print(
+                                f"Subsample of {subsample} is larger than population. Setting subsample to max value."
+                            )
+                            subsample = len(df_text)
                         df_processed = df_text.sample(n=subsample, random_state=42)
                     else:
                         df_processed = df_text
@@ -127,24 +136,32 @@ if __name__ == "__main__":
     n_proc = len(pipe) - 1
     # Process:
     for proc, p in enumerate(pipe):
-        print(p)
+        logger.info(f"Stage: '{p}'")
         # Merge multiple dataframes
         if p == "merge_data":
             merge_data(dir_metadata, dir_text_metadata, merge_dfs=merge_dfs)
+            logger.info("New dataframe saved.")
             # load info if it's not the last processing step
             if not proc == n_proc:
                 df_text = load_df(dir_text_metadata)
                 if subsample:
+                    if subsample > len(df_text):
+                        logger.warning(
+                            f"Subsample of {subsample} is larger than population. Setting subsample to max value."
+                        )
+                        subsample = len(df_text)
                     df_processed_ids = random.sample(list(df_text.index), subsample)
                     df_processed = df_text.loc[df_text.index.isin(df_processed_ids)]
                 else:
                     df_processed_ids = df_text.index
                     df_processed = df_text
+                save_df(df_processed, dir_text_processed)
+                df_processed = load_df(dir_text_processed)
 
         # Language Identification
-        if p == "lang_id":
+        elif p == "lang_id":
             lang_detector = LanguageDetector(
-                library="fasttext", ft_model=str(Path("models/lid.176.bin").absolute())
+                library="fasttext", ft_model=str(Path("models/lid.176.ftz").absolute())
             )
 
             if use_dask:
@@ -153,8 +170,8 @@ if __name__ == "__main__":
                 aux["lang"] = aux["text"].apply(
                     lang_detector.identify_language, meta=(None, "object")
                 )
-                aux = aux.compute()["lang"]
-                df_processed.loc[aux.index, "lang"] = aux
+                aux = aux.compute()
+                df_processed.loc[aux.index, "lang"] = aux["lang"]
 
             else:
                 df_processed.loc[df_processed_ids, "lang"] = df_processed.loc[
@@ -163,12 +180,13 @@ if __name__ == "__main__":
 
             # Save
             save_df(df_processed, dir_text_processed)
+            logger.info("Language identified.")
             # load info if it's not the last processing step
             if not proc == n_proc:
                 df_processed = load_df(dir_text_processed)
 
         # Text normalization
-        if p == "normalization":
+        elif p == "normalization":
             preprocessor_normalizer = TextPreprocessor(
                 methods=[
                     "lowercase",
@@ -177,10 +195,11 @@ if __name__ == "__main__":
                     # "convert_ngrams",
                 ],
                 # ngrams=ngrams,
+                logger=logger,
             )
 
             # Compute and save iteratively
-            step = 10_000
+            step = 1000
             indices = range(len(df_processed_ids))
 
             # Skip columns already processed
@@ -219,12 +238,13 @@ if __name__ == "__main__":
 
             # Save
             save_df(df_processed, dir_text_processed)
+            logger.info("Text normalized.")
             # load info if it's not the last processing step
             if not proc == n_proc:
                 df_processed = load_df(dir_text_processed)
 
         # Full process text
-        if p == "preprocess":
+        elif p == "preprocess":
             preprocessor_full = TextPreprocessor(
                 methods=[
                     "lowercase",
@@ -239,10 +259,11 @@ if __name__ == "__main__":
                 stopwords=stop_words,
                 vocabulary=vocabulary,
                 ngrams=ngrams,
+                logger=logger,
             )
 
             # Compute and save iteratively
-            step = 1_000
+            step = 1000
             indices = range(len(df_processed_ids))
 
             # Skip columns already processed
@@ -291,21 +312,13 @@ if __name__ == "__main__":
 
             # Save
             save_df(df_processed, dir_text_processed)
+            logger.info("Text preprocessed.")
             # load info if it's not the last processing step
             if not proc == n_proc:
                 df_processed = load_df(dir_text_processed)
+        else:
+            logger.warning(
+                f"Invalid element: {p} not in ['merge_data', 'lang_id', 'normalization', 'preprocess']"
+            )
 
-        print("- finished")
-
-
-# # Test texts
-# text = "Hola, mi nombre s /202 es Juana3w29, de Castilla-La Mancha-999iu. ca-g-k-8--l1 fs-12sas -ejemplo C.I.N.E. km/h otro- Aquí laboratorio añado algùn que otro 329854. Yo 8923jk3292 ( (34) 9348hnkj2j398421h9 vi\ve en Mancha-iu993 Madriz y 9876trabajo 543como profecional en el -201 ámbito de la marketin. Me (gusta) mucho viajar, conozer nuebas u-235 u235 utf8 utf-8 culturas y aprendel cosas nuebas. También me encanta leer, ver pelis y hacer deporte. Mi favorito es el tenis y mi jugadora preferida es Rafal Nadal. Espero conocel gente nueva y hacer amigos por íaquí."
-# # text = "Hi mi name is Juana. Here I add some 329854. I lives in Madriz and work as..."
-# text = """
-# P-2023-78-asdasdf-12-23
-# REF-234-123
-# REF-2334-123
-# C6H12O6
-
-# Hola, mi nombre s /202 es Juana3w29, de Castilla-La Mancha-999iu. ca-g-k-8--l1 fs-12sas -ejemplo C.I.N.E. km/h otro- Aquí laboratorio añado algùn que otro 329854. Yo 8923jk3292 ( (34) 9348hnkj2j398421h9 vi\ve en Mancha-iu993 Madriz y 9876trabajo 543como profecional en el -201 ámbito de la marketin. Me (gusta) mucho viajar, conozer nuebas u-235 u235 utf8 utf-8 culturas y aprendel cosas nuebas. También me encanta leer, ver pelis y hacer deporte. Mi favorito es el tenis y mi jugadora preferida es Rafal Nadal. Espero conocel gente nueva y hacer amigos por íaquí.
-# """
+        # logger.info("Finished")

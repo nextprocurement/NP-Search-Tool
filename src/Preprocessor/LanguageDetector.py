@@ -23,7 +23,7 @@ class LanguageDetector:
                 lang = self.lang_detector.predict(text)[0][0][9:]
         except:
             lang = "unknown"
-        return lang
+        return str(lang)
 
     def filter_language(self, text, lang="es"):
         # print(self.identify_language(text))

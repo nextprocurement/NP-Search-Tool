@@ -1,14 +1,9 @@
+import shutil
 from pathlib import Path
 from subprocess import check_output
 from typing import List, Union
 
-import numpy as np
-from gensim.corpora import Dictionary
-from gensim.models import LdaModel, LdaMulticore
 from tqdm import trange
-from time import time
-from src.Preprocessor.NgramProcessor import PMI
-from src.utils import load_item_list, load_vocabulary
 
 from .BaseModel import BaseModel
 
@@ -61,19 +56,19 @@ class MalletLDAModel(BaseModel):
         Returns path to generated .mallet file.
         """
         # Define directories
-        texts_txt_path = name.joinpath("corpus.txt")
-        texts_mallet_path = name.joinpath("corpus.mallet")
+        # texts_txt_path = name.joinpath("corpus.txt")
+        # texts_mallet_path = name.joinpath("corpus.mallet")
+        texts_txt_path = Path("/tmp").joinpath("corpus.txt")
+        texts_mallet_path = Path("/tmp").joinpath("corpus.mallet")
 
-        t1 = time()
         # Create corpus.txt
-        print("Creating corpus.txt...")
+        self.logger.info("Creating corpus.txt...")
         with texts_txt_path.open("w", encoding="utf8") as fout:
             for i, t in enumerate(texts):
                 fout.write(f"{i} 0 {t}\n")
-        t2 = time()
-        print(f"Done: {t2-t1:.3f} [{len(texts)} texts] [{(t2-t1)/len(texts):.3f}s/text]")
+        self.logger.info(f"corpus.txt created")
         # Convert corpus.txt to corpus.mallet
-        print("Creating corpus.mallet...")
+        self.logger.info("Creating corpus.mallet...")
         cmd = (
             f"{self._mallet_path} import-file "
             f"--input {texts_txt_path} "
@@ -84,9 +79,14 @@ class MalletLDAModel(BaseModel):
         if predict:
             cmd += f"--use-pipe-from corpus.mallet"
         check_output(args=cmd, shell=True)
-        t3 = time()
-        print(f"Done: {t3-t2:.3f} [{len(texts)} texts]")
-        return texts_mallet_path
+        self.logger.info(f"corpus.mallet created")
+        texts_txt_path = shutil.move(texts_txt_path, name.joinpath("corpus.txt"))
+        texts_mallet_path = shutil.move(
+            texts_mallet_path, name.joinpath("corpus.mallet")
+        )
+        # texts_txt_path = name.joinpath("corpus.txt")
+        # texts_mallet_path = name.joinpath("corpus.mallet")
+        return Path(texts_mallet_path)
 
     def train(
         self,

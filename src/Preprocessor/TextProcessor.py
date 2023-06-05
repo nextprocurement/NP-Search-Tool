@@ -1,3 +1,4 @@
+import logging
 from typing import List, Union
 
 import enchant
@@ -18,6 +19,7 @@ class TextPreprocessor:
         stopwords: List[str] = [],
         vocabulary: dict = {},
         ngrams: List[str] = [],
+        logger: logging.Logger = None,
     ):
         """
         Parameters
@@ -45,6 +47,13 @@ class TextPreprocessor:
         ngrams: list(str) [Optional]
             list of ngrams to find in text and convert into unique word (e.g. arrtificial intelligence->arrtificial-intelligence)
         """
+        # Set logger
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = logging.getLogger(__name__)
+
+        # Params
         self.methods = methods
         self.stemmer = SnowballStemmer("spanish")
         self.spellchecker = enchant.Dict("es_ES")  # Initialize the spellchecker
@@ -53,6 +62,7 @@ class TextPreprocessor:
 
         # Lemmatization type
         if vocabulary:
+            self.logger.info("Using custom lemmatizer.")
             self.vocabulary = vocabulary
             self.lemmatizer = Lemmatizer(vocabulary)
             self.nlp = spacy.load(
@@ -60,6 +70,7 @@ class TextPreprocessor:
                 disable=["tok2vec", "parser", "attribute_ruler", "lemmatizer", "ner"],
             )  # es_core_news_lg | es_dep_news_trf
         else:
+            self.logger.info("Using predefined lemmatizer.")
             self.nlp = spacy.load(
                 "es_dep_news_trf"
             )  # es_core_news_lg | es_dep_news_trf
@@ -122,7 +133,7 @@ class TextPreprocessor:
 
     def lemmatize_text(self, text: str, rtype="str"):
         doc = self.nlp(text)
-        if self.lemmatizer:
+        if hasattr(self, "lemmatizer"):
             lemmatized_words = [self.lemmatizer.lemmatize_spanish(w) for w in doc]
         else:
             lemmatized_words = [token.lemma_ for token in doc]
@@ -161,7 +172,7 @@ class TextPreprocessor:
         pattern = (
             f"(?<![a-zA-Z\u00C0-\u024F\d\-\_])"
             f"[a-zA-Z\u00C0-\u024F]"
-            f"(?:[a-zA-Z\u00C0-\u024F]|(?!\d{{4}})[\d]|[\-\_\·\.'](?![\-\_\·\.\'])){{{min_len - 1},}}"
+            f"(?:[a-zA-Z\u00C0-\u024F]|(?!\d{{4}})[\d]|[\-\_\·\.'](?![\-\_\·\.'])){{{min_len - 1},}}"
             f"(?<![\-\_\·\.'])[a-zA-Z\u00C0-\u024F\d]?"
             f"(?![a-zA-Z\u00C0-\u024F\d])"
         )
@@ -222,21 +233,6 @@ class TextPreprocessor:
             )
             self._stopwords_regex = regex.compile(pattern, regex.IGNORECASE)
         """
-
-        # if fast:
-        #     if isinstance(text, str):
-        #         filtered_text = text.split()
-        #     # filtered_text = [w for w in filtered_text if w not in self.stopwords]
-        #     filtered_text = [
-        #         w
-        #         for w in filtered_text
-        #         if (w not in self.stopwords)
-        #         and (all(el not in self.stopwords for el in w.split("-")))
-        #     ]
-        #     if rtype == "str":
-        #         filtered_text = str(" ".join(filtered_text))
-
-        # else:
         if isinstance(text, str):
             if ignore_case:
                 filtered_text = self._stopwords_regex_uncased.sub("", text)
@@ -293,10 +289,12 @@ class TextPreprocessor:
                     elif isinstance(a, dict):
                         kwargs = a
             if hasattr(self, method):
+                # self.logger.info(f"Processing text: '{method}'.")
                 if rtype:
                     text = getattr(self, method)(text, *args, **kwargs, rtype=rtype)
                 else:
                     text = getattr(self, method)(text, *args, **kwargs)
             else:
-                print(f"Method '{method}' does not exist.")
+                # self.logger.warning(f"Method '{method}' does not exist.")
+                pass
         return text
