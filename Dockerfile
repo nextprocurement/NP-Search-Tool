@@ -66,7 +66,7 @@ RUN pip install hdbscan
 
 # Install pytorch
 # RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-RUN pip install torch torchvision torchaudio
+RUN pip install torch
 
 # Install requirements
 RUN pip install -r requirements.txt
@@ -82,6 +82,10 @@ RUN cd /app/Mallet && ant
 # Download and cache the sentence transformer model
 ARG MODEL_NAME=paraphrase-multilingual-MiniLM-L12-v2
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${MODEL_NAME}')"
+
+# Download fasttext model
+RUN mkdir models
+RUN wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz -O /app/models/lid.176.ftz
 
 # Copy the config/ directory
 COPY config/ config/
