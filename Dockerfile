@@ -1,4 +1,4 @@
-# Use official Python 3.8 image with CUDA support
+# Use official ubuntu image with CUDA support
 FROM nvidia/cuda:11.6.2-base-ubuntu20.04
 
 # Set environment variables
