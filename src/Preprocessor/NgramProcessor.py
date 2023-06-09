@@ -3,7 +3,9 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
+from Levenshtein import distance
 from nltk.util import ngrams
+from tqdm import tqdm
 
 
 def find_ngrams(text: List[str], n: int = 2, **kwargs):
@@ -26,6 +28,13 @@ def _compute_ngram_counts(
         minimum number of appearances for a word in the entire vocabulary to be considered
     n: int
         ngram size
+
+    Returns
+    -------
+    wc: Counter
+        WordCounter: number of total appearances of word.
+    cc: Counter
+        CoappearanceCounter: number of total appearances of ngram.
     """
     word_counts = Counter()
     ngrams = Counter()
@@ -76,6 +85,8 @@ def _filter_co_appearance(
     min_appearance_ngram: int = 0,
 ):
     """
+    Obtain a filtered version of ngrams by number of appearances.
+
     Parameters
     ----------
     word_counts: dict
@@ -86,6 +97,10 @@ def _filter_co_appearance(
         minimum number of appearances for a term in the entire vocabulary to be considered
     min_appearance_ngram: int
         minimum number of appearances for a term tuple to be considered
+
+    Returns
+    -------
+    word_counts, ngrams, total_words, total_ngrams
     """
 
     valid_vocab = set(word_counts.keys())
@@ -127,6 +142,68 @@ def _filter_co_appearance(
     return word_counts, ngrams, total_words, total_ngrams
 
 
+def get_ngrams_in_corpus(
+    corpus: List[List[str]],
+    min_appearance_word: int = 0,
+    min_appearance_ngram: int = 0,
+    n: Union[int, List[int]] = 2,
+    verbose=False,
+):
+    """
+    Get ngrams from a corpus filtered by appearance.
+
+    Parameters
+    ----------
+    corpus: list(list(str))
+    min_appearance: int
+        minimum number of appearances for a word in the entire vocabulary to be considered
+    n: int | list(int)
+        ngram size
+        If list: find ngrams for all sizes
+
+    Returns
+    -------
+    word_counts, co_occurrence_counts, total_words, total_ngrams
+    """
+    word_counts = {}
+    co_occurrence_counts = {}
+    total_words = 0
+    total_ngrams = 0
+    if isinstance(n, int):
+        word_counts, co_occurrence_counts = _compute_ngram_counts(corpus, n)
+    else:
+        if verbose:
+            # t = trange(len(n))
+            pbar = tqdm(total=len(n), leave=True)
+        # else:
+        #     t = range(len(n))
+        for el in n:
+            # el = n[i]
+            if verbose:
+                pbar.set_description(f"{el}-gram")
+                pbar.refresh()
+            wc, cc = _compute_ngram_counts(corpus, el)
+            wc, cc, tw, tn = _filter_co_appearance(
+                wc, cc, min_appearance_word, min_appearance_ngram
+            )
+            word_counts = {**word_counts, **wc}
+            co_occurrence_counts = {**co_occurrence_counts, **cc}
+            if verbose:
+                pbar.update(1)
+        if verbose:
+            pbar.close()
+    (
+        word_counts,
+        co_occurrence_counts,
+        total_words,
+        total_ngrams,
+    ) = _filter_co_appearance(
+        word_counts, co_occurrence_counts, min_appearance_word, min_appearance_ngram
+    )
+
+    return word_counts, co_occurrence_counts, total_words, total_ngrams
+
+
 def PMI(
     word_counts: dict, co_occurrence_counts: dict, total_words: int, total_ngrams: int
 ):
@@ -150,6 +227,7 @@ def compute_pmi_ngram_corpus(
     min_appearance_word: int = 0,
     min_appearance_ngram: int = 0,
     n: Union[int, List[int]] = 2,
+    verbose=False,
 ):
     """
     Compute Pointwise Mutual Information of ngrams in corpus.
@@ -168,30 +246,12 @@ def compute_pmi_ngram_corpus(
     pmi: dict
         PMI of ngrams
     """
-    pmi = {}
-    word_counts = {}
-    co_occurrence_counts = {}
-    total_words = 0
-    total_ngrams = 0
-    if isinstance(n, int):
-        word_counts, co_occurrence_counts = _compute_ngram_counts(corpus, n)
-    else:
-        for el in n:
-            wc, cc = _compute_ngram_counts(corpus, el)
-            wc, cc, tw, tn = _filter_co_appearance(
-                wc, cc, min_appearance_word, min_appearance_ngram
-            )
-            word_counts = {**word_counts, **wc}
-            co_occurrence_counts = {**co_occurrence_counts, **cc}
-            total_words += tw
-            total_ngrams += tn
-    (
-        word_counts,
-        co_occurrence_counts,
-        total_words,
-        total_ngrams,
-    ) = _filter_co_appearance(
-        word_counts, co_occurrence_counts, min_appearance_word, min_appearance_ngram
+    word_counts, co_occurrence_counts, total_words, total_ngrams = get_ngrams_in_corpus(
+        corpus=corpus,
+        min_appearance_word=min_appearance_word,
+        min_appearance_ngram=min_appearance_ngram,
+        n=n,
+        verbose=verbose,
     )
     pmi = PMI(word_counts, co_occurrence_counts, total_words, total_ngrams)
     return pmi
@@ -223,43 +283,130 @@ def replace_ngrams(text: str, ngrams: dict = {}, ngram_size: int = 4):
     return str(words)
 
 
-def suggest_ngrams(corpus: pd.Series, ngram_size: int = 4, stop_words: list = []):
+def suggest_ngrams(
+    corpus: List[List[str]],
+    min_appearance_word: int = 0,
+    min_appearance_ngram: int = 0,
+    n: Union[int, List[int]] = 2,
+    stop_words: List[str] = [],
+    sw_proportion: float = 0.3,
+):
     """
-    Generate a list of potential ngrams of size 2 up to size `ngram_size` from a corpus.
+    Obtain potential ngrams in corpus.
+
     Parameters
     ----------
-    corpus: pd.Series
-        Series of text.
-    ngram_size: int
-        Size of the desired ngrams. min=2.
-    stop_words: list
-        If the ngram is in this list, they will not be included.
+    corpus: list(list(str))
+    min_appearance: int
+        minimum number of appearances for a word in the entire vocabulary to be considered
+    n: int | list(int)
+        ngram size
+        If list: find ngrams for all sizes
+    stop_words: list(str)
+        List of stopwords to avoid
+    sw_proportion: float
+        If more than sw_proportion are stopwords, the ngram will be discarded.
+
+    Returns
+    -------
+    proposed_ngrams: Counter(list(str), int)
+        ngram, number of appearances
     """
-    sug_ngrams = []
-    pmi_ngrams = dict()
-    if isinstance(corpus[0], str):
-        corpus = corpus.str.split()
-    t = range(ngram_size, 1, -1)
-    for i in t:
-        # t.set_description(f"{len(pmi_ngrams)} ngrams. {i}-grams.")
-        # t.refresh()
-        aux_ng = compute_pmi_ngram_corpus(
-            corpus,
-            min_appearance_word=1000,
-            min_appearance_ngram=500,
-            n=i,
+
+    def contains_ngram(ngram, el):
+        return "-".join(ngram) in "-".join(el)
+
+    def custom_scaler(n_els, app, c_max, c_min, skew=0.5):
+        n_els_weight = skew
+        app_weight = 1 - skew
+        # n_els_normalized = ((n_els - 1) / (10 - 1))
+        # n_els_normalized = (((n_els - 1) / (10 - 1)))
+        n_els_normalized = 1 / np.sqrt(np.log(n_els + 1))
+        app_normalized = np.log(((c_max - c_min + 1) / (app - c_min + 1)))
+        # print(app, app-100, c_max, c_max-100)
+        # app_normalized = app
+        # print(n_els, n_els_normalized, app_normalized)
+        scaled_value = n_els_weight * n_els_normalized + app_weight * app_normalized
+        return scaled_value
+
+    # Obtain all ngrams
+    word_counts, co_occurrence_counts, total_words, total_ngrams = get_ngrams_in_corpus(
+        corpus=corpus,
+        min_appearance_word=min_appearance_word,
+        min_appearance_ngram=min_appearance_ngram,
+        n=n,
+        verbose=True,
+    )
+    # Compute PMI
+    pmis = PMI(word_counts, co_occurrence_counts, total_words, total_ngrams)
+
+    # Filter out ngrams with more than sw_proportion of elements in stopwords
+    valid_keys = []
+    pbar = tqdm(total=len(co_occurrence_counts), desc="Find valid ngrams", leave=True)
+    for i, (k, v) in enumerate(co_occurrence_counts.items()):
+        count = Counter("-".join(k).split("-"))
+        c_stw = sum([count.get(s, 0) for s in stop_words])
+        c = sum(count.values())
+        if not c_stw / c >= sw_proportion:
+            valid_keys.append((k, v))
+        if not (i + 1) % 100:
+            pbar.update(100)
+    pbar.update((i + 1) % 100)
+    pbar.close()
+    ex = sorted(valid_keys, key=lambda x: len(x[0]))
+
+    # Convert to dataframe
+    all_ngrams = pd.DataFrame(
+        ex, columns=["ngram", "count"]
+    )  # .set_index("ngram")["count"]
+    all_ngrams["_len"] = all_ngrams["ngram"].apply(len)
+    data = all_ngrams.sort_values(by="_len")[["ngram", "count"]]
+
+    # Iterate over all ngrams (shortest first)
+    proposed_ngrams = []
+    pbar = tqdm(total=len(data), desc="Reduce ngrams", leave=True)
+    # with tqdm(total=len(data), desc="Obtain ") as pbar:
+    while len(data):
+        el = data.iloc[0]
+        idx = el.name
+        ngram = el["ngram"]
+        # Filter ngrams. Obtain all that contain short sub-ngram
+        sub = data.loc[
+            data["ngram"]
+            .apply(lambda x: x if contains_ngram(ngram, x) else None)
+            .dropna()
+            .index
+        ]
+
+        # Create scale factor based on length and appearances
+        n_els = sub["ngram"].apply(lambda x: len("-".join(x))).values
+        # n_els = sub["ngram"].apply(lambda x: len("-".join(x).split("-"))).values
+        c_max = sub["count"].max()
+        c_min = sub["count"].min()
+        scales = custom_scaler(n_els, sub["count"], c_max, c_min, 0.5)
+        # Compute average distance among ngrams
+        vals = (
+            sub["ngram"]
+            .apply(
+                lambda x: np.mean(
+                    [distance("-".join(x), "-".join(el)) for el in sub["ngram"]]
+                )
+            )
+            .values
         )
-        pmi_ngrams.update(aux_ng)
+        # Compute scores based on scaled distances
+        best_score = np.argmin(vals * scales)
+        # Get best value and remove the rest
+        if pmis[sub.iloc[best_score]["ngram"]] > 10:
+            proposed_ngrams.append((sub.iloc[best_score]["ngram"], sub["count"].sum()))
+            data = data.drop(sub.index)
+            pbar.update(len(sub))
+        else:
+            data = data.drop(idx)
+            pbar.update(1)
+    pbar.close()
 
-    # Choose suitable ngrams
-    pmi_ngrams = Counter(pmi_ngrams).most_common()
-    sug_ngrams = [el[0] for el in pmi_ngrams if el[1] >= 10]
-    sug_ngrams = {ng: "-".join(ng) for ng in sug_ngrams}
-    sug_ngrams = {
-        k: v for k, v in sug_ngrams.items() if all([el not in stop_words for el in k])
-    }
-
-    return sug_ngrams
+    return Counter(dict(proposed_ngrams))
 
 
 if __name__ == "__main__":
