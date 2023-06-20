@@ -12,7 +12,7 @@ from tqdm import trange
 from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
-from src.utils import load_item_list, load_vocabulary
+from src.utils import load_item_list, load_vocabulary, set_logger
 
 
 def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
@@ -23,38 +23,15 @@ def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
     if lang and "lang" in df.columns:
         if lang == "all":
             return df
-        lang = list(lang)
+        if isinstance(lang, str):
+            lang = [lang]
         df = df[df["lang"].isin(lang)]
-
-    return df
+    df_ids = df.index
+    return df, df_ids
 
 
 def save_df(df: pd.DataFrame, dir_df: Path):
     df.to_parquet(dir_df, engine="pyarrow")
-
-
-def set_logger(console_log=True, file_log=True):
-    # Set up the logger
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
-
-    # Create console handler
-    if console_log:
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-    # Create file handler
-    if file_log:
-        file_handler = logging.FileHandler("app.log", encoding="utf-8")
-        file_handler.setLevel(logging.INFO)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    # logger.info("Log created.")
-    return logger
 
 
 #  Process text
@@ -71,6 +48,8 @@ if __name__ == "__main__":
 
     with open(args.options, "r") as f:
         options = dict(yaml.safe_load(f))
+
+    #################################
 
     # Access options
     use_dask = options["use_dask"]
@@ -99,6 +78,8 @@ if __name__ == "__main__":
     use_stopwords = options.get("use_stopwords", "all")
     use_ngrams = options.get("use_stopwords", "all")
 
+    #################################
+
     # Load data
     stop_words = load_item_list(dir_stopwords, use_item_list=use_stopwords)
     ngrams = load_item_list(dir_ngrams, use_item_list=use_ngrams)
@@ -110,7 +91,7 @@ if __name__ == "__main__":
         if any([p in ["lang_id", "normalization", "preprocess"] for p in pipe]):
             # dir_text_processed already exists and can be used
             if dir_text_processed.exists():
-                df_processed = load_df(dir_text_processed)
+                df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
             else:
                 # df_text already exists?
                 if not dir_text_metadata.exists():
@@ -119,7 +100,7 @@ if __name__ == "__main__":
                     )
                     exit()
                 else:
-                    df_text = load_df(dir_text_metadata)
+                    df_text, _ = load_df(dir_text_metadata, lang=lang)
                     df_text = df_text[df_text["text"].apply(lambda x: len(x) > 20)]
                     if subsample:
                         if subsample > len(df_text):
@@ -143,11 +124,11 @@ if __name__ == "__main__":
             logger.info("New dataframe saved.")
             # load info if it's not the last processing step
             if not proc == n_proc:
-                df_text = load_df(dir_text_metadata)
+                df_text, _ = load_df(dir_text_metadata, lang=lang)
                 if subsample:
                     if subsample > len(df_text):
                         logger.warning(
-                            f"Subsample of {subsample} is larger than population. Setting subsample to max value."
+                            f"Subsample of {subsample} is larger than population. Setting subsample to max value ({len(df_text)} samples)."
                         )
                         subsample = len(df_text)
                     df_processed_ids = random.sample(list(df_text.index), subsample)
@@ -156,7 +137,7 @@ if __name__ == "__main__":
                     df_processed_ids = df_text.index
                     df_processed = df_text
                 save_df(df_processed, dir_text_processed)
-                df_processed = load_df(dir_text_processed)
+                df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
 
         # Language Identification
         elif p == "lang_id":
@@ -165,8 +146,7 @@ if __name__ == "__main__":
             )
 
             if use_dask:
-                ids = df_processed.index.isin(df_processed_ids)
-                aux = dd.from_pandas(df_processed.loc[ids][["text"]], npartitions=100)
+                aux = dd.from_pandas(df_processed[["text"]], npartitions=100)
                 aux["lang"] = aux["text"].apply(
                     lang_detector.identify_language, meta=(None, "object")
                 )
@@ -183,7 +163,7 @@ if __name__ == "__main__":
             logger.info("Language identified.")
             # load info if it's not the last processing step
             if not proc == n_proc:
-                df_processed = load_df(dir_text_processed)
+                df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
 
         # Text normalization
         elif p == "normalization":
@@ -199,7 +179,7 @@ if __name__ == "__main__":
             )
 
             # Compute and save iteratively
-            step = 1000
+            step = min(1000, len(df_processed_ids))
             indices = range(len(df_processed_ids))
 
             # Skip columns already processed
@@ -212,7 +192,10 @@ if __name__ == "__main__":
 
             if use_dask:
                 for i in t:
-                    ids = df_processed.index.isin(df_processed_ids[i : i + step])
+                    # ids = df_processed_ids[i : i + step]
+                    ids = df_processed.loc[
+                        df_processed["normalized_text"].isna(), "normalized_text"
+                    ].index[i : i + step]
                     aux = dd.from_pandas(
                         df_processed.loc[ids][["text"]], npartitions=100
                     )
@@ -223,25 +206,31 @@ if __name__ == "__main__":
                     df_processed.loc[aux.index, "normalized_text"] = aux
                     # Save
                     save_df(df_processed, dir_text_processed)
-                    df_processed = load_df(dir_text_processed)
+                    df_processed, df_processed_ids = load_df(
+                        dir_text_processed, lang=lang
+                    )
 
             else:
                 for i in t:
-                    df_processed.loc[
-                        df_processed_ids[i : i + step], "normalized_text"
-                    ] = df_processed.loc[df_processed_ids[i : i + step], "text"].apply(
-                        preprocessor_normalizer.preprocess
-                    )
+                    # ids = df_processed_ids[i : i + step]
+                    ids = df_processed.loc[
+                        df_processed["normalized_text"].isna(), "normalized_text"
+                    ].index[i : i + step]
+                    df_processed.loc[ids, "normalized_text"] = df_processed.loc[
+                        ids, "text"
+                    ].apply(preprocessor_normalizer.preprocess)
                     # Save
                     save_df(df_processed, dir_text_processed)
-                    df_processed = load_df(dir_text_processed)
+                    df_processed, df_processed_ids = load_df(
+                        dir_text_processed, lang=lang
+                    )
 
             # Save
             save_df(df_processed, dir_text_processed)
             logger.info("Text normalized.")
             # load info if it's not the last processing step
             if not proc == n_proc:
-                df_processed = load_df(dir_text_processed)
+                df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
 
         # Full process text
         elif p == "preprocess":
@@ -263,7 +252,7 @@ if __name__ == "__main__":
             )
 
             # Compute and save iteratively
-            step = 1000
+            step = min(1000, len(df_processed_ids))
             indices = range(len(df_processed_ids))
 
             # Skip columns already processed
@@ -277,10 +266,10 @@ if __name__ == "__main__":
                 for i in t:
                     # t.set_description(f"")
                     # t.refresh()
-                    ids = df_processed.index.isin(df_processed_ids[i : i + step])
-                    # ids = df_processed.loc[
-                    #     df_processed["preprocessed_text"].isna(), "preprocessed_text"
-                    # ].index[i : i + step]
+                    # ids = df_processed_ids[i : i + step]
+                    ids = df_processed.loc[
+                        df_processed["preprocessed_text"].isna(), "preprocessed_text"
+                    ].index[i : i + step]
                     aux = dd.from_pandas(
                         df_processed.loc[ids][["text"]], npartitions=100
                     )
@@ -292,7 +281,9 @@ if __name__ == "__main__":
 
                     # Save
                     save_df(df_processed, dir_text_processed)
-                    df_processed = load_df(dir_text_processed)
+                    df_processed, df_processed_ids = load_df(
+                        dir_text_processed, lang=lang
+                    )
 
             else:
                 for i in t:
@@ -308,14 +299,16 @@ if __name__ == "__main__":
 
                     # Save
                     save_df(df_processed, dir_text_processed)
-                    df_processed = load_df(dir_text_processed)
+                    df_processed, df_processed_ids = load_df(
+                        dir_text_processed, lang=lang
+                    )
 
             # Save
             save_df(df_processed, dir_text_processed)
             logger.info("Text preprocessed.")
             # load info if it's not the last processing step
             if not proc == n_proc:
-                df_processed = load_df(dir_text_processed)
+                df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
         else:
             logger.warning(
                 f"Invalid element: {p} not in ['merge_data', 'lang_id', 'normalization', 'preprocess']"

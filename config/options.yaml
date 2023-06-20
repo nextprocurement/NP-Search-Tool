@@ -1,7 +1,7 @@
 # Options
 use_dask: false  # Whether to use Dask for distributed computing. Set to 'true' if you have a Dask cluster.
 
-subsample: 10000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
+subsample: 300000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
 
 pipe:  # The steps to be taken in the pipeline. Order matters!
   - merge_data      # Merges data from different sources
@@ -27,7 +27,7 @@ dir_ngrams: /app/data/ngrams  # Directory for ngrams
 dir_vocabulary: /app/data/RAE/vocabulary_extended.json  # Path to extended vocabulary JSON
 
 dir_text_metadata: /app/data/metadata/df_text.parquet  # Path to text metadata parquet file
-dir_text_processed: /app/data/metadata/df_processed_pd.parquet  # Path to processed text metadata parquet file
+dir_text_processed: /app/data/metadata/df_normalized.parquet  # Path to processed text metadata parquet file
 
 # List loading options
 # Modify these values to choose which stopwords and ngrams to use. If "all", every file in the directory will be used.
@@ -39,3 +39,6 @@ use_ngrams: all  # Which ngrams to use
   # - expresiones_ngrams.txt
   # - ngrams.txt
   # - proposed_ngrams.txt
+
+# Number of topics for the topic model
+num_topics: 50
