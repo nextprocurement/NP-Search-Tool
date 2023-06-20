@@ -111,6 +111,7 @@ class BERTopicModel(BaseModel):
             ctfidf_model=self.ctfidf_model,
             representation_model=self.representation_model,
         )
+        self.logger.info("Finished training")
 
     def predict(self, texts):
         self.model.calculate_probabilities = True

@@ -20,6 +20,7 @@ class GensimLDAModel(BaseModel):
         texts = [t.split() for t in texts]
         self.dictionary = Dictionary(texts)
         corpus = [self.dictionary.doc2bow(text) for text in texts]
+        self.logger.info("Texts transformed")
         self.model = LdaModel(
             corpus,
             num_topics=self.num_topics,
@@ -27,6 +28,7 @@ class GensimLDAModel(BaseModel):
             iterations=iterations,
             random_state=42,
         )
+        self.logger.info("Finished training")
 
     def predict(self, texts: List[str]):
         # Convert texts to format

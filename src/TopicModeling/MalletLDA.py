@@ -1,8 +1,10 @@
+import logging
 import shutil
 from pathlib import Path
 from subprocess import check_output
 from typing import List, Union
 
+import numpy as np
 from tqdm import trange
 
 from .BaseModel import BaseModel
@@ -25,6 +27,7 @@ class MalletLDAModel(BaseModel):
         stop_words: list = [],
         word_min_len: int = 2,
         mallet_path="/app/Mallet/bin/mallet",
+        logger: logging.Logger = None,
     ):
         """
         Initilization Method
@@ -35,7 +38,7 @@ class MalletLDAModel(BaseModel):
             Full path to mallet binary
         """
 
-        super().__init__(model_dir, stop_words, word_min_len)
+        super().__init__(model_dir, stop_words, word_min_len, logger)
         self._mallet_path = Path(mallet_path)
 
         # Create sub-directories
@@ -48,9 +51,7 @@ class MalletLDAModel(BaseModel):
 
         return
 
-    def _create_corpus_mallet(
-        self, texts: List[str], name: Path, predict: bool = False
-    ):
+    def _create_corpus_mallet(self, texts: List[str], predict: bool = False):
         """
         Generate .txt and .mallet files to train LDA model.
         Returns path to generated .mallet file.
@@ -58,8 +59,12 @@ class MalletLDAModel(BaseModel):
         # Define directories
         # texts_txt_path = name.joinpath("corpus.txt")
         # texts_mallet_path = name.joinpath("corpus.mallet")
-        texts_txt_path = Path("/tmp").joinpath("corpus.txt")
-        texts_mallet_path = Path("/tmp").joinpath("corpus.mallet")
+        if predict:
+            texts_txt_path = Path("/tmp").joinpath("corpus_predict.txt")
+            texts_mallet_path = Path("/tmp").joinpath("corpus_predict.mallet")
+        else:
+            texts_txt_path = Path("/tmp").joinpath("corpus_train.txt")
+            texts_mallet_path = Path("/tmp").joinpath("corpus_train.mallet")
 
         # Create corpus.txt
         self.logger.info("Creating corpus.txt...")
@@ -67,6 +72,7 @@ class MalletLDAModel(BaseModel):
             for i, t in enumerate(texts):
                 fout.write(f"{i} 0 {t}\n")
         self.logger.info(f"corpus.txt created")
+
         # Convert corpus.txt to corpus.mallet
         self.logger.info("Creating corpus.mallet...")
         cmd = (
@@ -77,13 +83,19 @@ class MalletLDAModel(BaseModel):
             # f"--remove-stopwords "
         )
         if predict:
-            cmd += f"--use-pipe-from corpus.mallet"
+            cmd += f"--use-pipe-from {Path('/tmp/corpus_train.mallet')}"
         check_output(args=cmd, shell=True)
         self.logger.info(f"corpus.mallet created")
-        texts_txt_path = shutil.move(texts_txt_path, name.joinpath("corpus.txt"))
-        texts_mallet_path = shutil.move(
-            texts_mallet_path, name.joinpath("corpus.mallet")
-        )
+
+        # Move info to desired location
+        if predict:
+            name = self._infer_data_dir
+        else:
+            name = self._train_data_dir
+        texts_txt_path = shutil.copy(texts_txt_path, name.joinpath("corpus.txt"))
+        texts_mallet_path = shutil.copy(texts_mallet_path, name.joinpath("corpus.mallet"))
+        # texts_txt_path = shutil.move(texts_txt_path, name.joinpath("corpus.txt"))
+        # texts_mallet_path = shutil.move(texts_mallet_path, name.joinpath("corpus.mallet"))
         # texts_txt_path = name.joinpath("corpus.txt")
         # texts_mallet_path = name.joinpath("corpus.mallet")
         return Path(texts_mallet_path)
@@ -122,13 +134,10 @@ class MalletLDAModel(BaseModel):
         self.num_topics = num_topics
 
         # Define directories
-        file_name = self._train_data_dir
         config_file = self._train_data_dir.joinpath("train.config")
 
         # Generate corpus.mallet
-        texts_mallet_path = self._create_corpus_mallet(
-            texts, name=file_name, predict=False
-        )
+        texts_mallet_path = self._create_corpus_mallet(texts, predict=False)
 
         # Generate train config
         with config_file.open("w", encoding="utf8") as fout:
@@ -166,6 +175,7 @@ class MalletLDAModel(BaseModel):
         # print(cmd)
         # print()
         check_output(args=cmd, shell=True)
+        self.logger.info("Finished training")
 
         return
 
@@ -180,26 +190,25 @@ class MalletLDAModel(BaseModel):
 
         """
         # Define directories
-        file_name = self._infer_data_dir
         dir_inferencer = self._model_data_dir.joinpath("inferencer.mallet")
         predicted_doctopic = self._infer_data_dir.joinpath("predicted_topics.txt")
 
         # Generate corpus.mallet
-        texts_mallet_infer_path = self._create_corpus_mallet(
-            texts, name=file_name, predict=True
-        )
+        texts_mallet_infer_path = self._create_corpus_mallet(texts, predict=True)
 
+        self.logger.info("Infer topics")
         # Infer topics
         cmd = (
             f"{self._mallet_path} infer-topics "
             f"--inferencer {dir_inferencer} "
             f"--input {texts_mallet_infer_path} "
-            f"--output-doc-topics {predicted_doctopic} "
+            f"--output-doc-topics /tmp/predicted_topics.txt "
         )
         check_output(args=cmd, shell=True)
+        shutil.copy("/tmp/predicted_topics.txt", predicted_doctopic)
 
-        # return ftext_doctopic
-        return
+        pred = np.loadtxt(predicted_doctopic, usecols=range(2, self.num_topics + 2))
+        return pred
 
     def get_topics_words(self, n_words=10):
         # Define directories

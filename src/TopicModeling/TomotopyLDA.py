@@ -2,7 +2,7 @@ from typing import List
 
 import numpy as np
 import tomotopy as tp
-from tqdm import trange
+from tqdm import tqdm, trange
 
 from .BaseModel import BaseModel
 
@@ -17,12 +17,22 @@ class TomotopyLDAModel(BaseModel):
         texts = [t.split() for t in texts]
         for text in texts:
             self.model.add_doc(text)
-        # self.model.train(0)
-        t = trange(0, iterations, 10, desc="", leave=True)
-        for i in t:
-            t.set_description(f"Iteration:{i}\tLL:{self.model.ll_per_word:.3f}")
-            t.refresh()
+        self.logger.info("Texts loaded")
+
+        batch = 10
+        progress = 0
+        pbar = tqdm(total=iterations, desc="Cleaning corpus", leave=True)
+        for i in range(0, iterations, batch):
             self.model.train(10)
+            update = min(batch, iterations - i)
+            progress += update
+            pbar.set_description(
+                f"Iteration:{progress}\tLL:{self.model.ll_per_word:.3f}", refresh=False
+            )
+            pbar.update(update)
+            # pbar.refresh()
+        pbar.close()
+        self.logger.info("Finished training")
 
     def predict(self, texts: List[str]):
         texts = [t.split() for t in texts]

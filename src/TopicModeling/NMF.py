@@ -41,7 +41,9 @@ class NMFModel(BaseModel):
 
         self.vectorizer = vectorizer
         tfidf = self.vectorizer.fit_transform(texts)
+        self.logger.info("Texts vectorized")
         self.model = NMF(n_components=self.num_topics, random_state=42).fit(tfidf)
+        self.logger.info("Finished training")
 
     def predict(self, texts: List[str]):
         tfidf = self.vectorizer.transform(texts)

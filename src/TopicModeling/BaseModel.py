@@ -21,7 +21,7 @@ class BaseModel:
         model_dir: Union[str, Path],
         stop_words: list = [],
         word_min_len: int = 2,
-        logger:logging.Logger=None,
+        logger: logging.Logger = None,
     ):
         """
         model_dir: str|Path
@@ -51,11 +51,11 @@ class BaseModel:
         )
 
     @abstractmethod
-    def train(self, texts) -> None:
+    def train(self, texts: List[str]) -> None:
         pass
 
     @abstractmethod
-    def predict(self, texts) -> np.ndarray:
+    def predict(self, texts: List[str]) -> np.ndarray:
         pass
 
     @abstractmethod
@@ -155,6 +155,16 @@ class BaseModel:
     #     top_topics = np.argsort(top_topics, axis=1)[0, ::-1][:top_n]
     #     close_topics = self.get_words_per_topic(10).loc[top_topics]
     #     return close_topics
+
+    def find_close_topics(self, query: str, top_n=5):
+        """
+        Given a query, find closest top_n topics.
+        """
+        query = query.lower()
+        pred = self.predict([query])
+        pred = np.reshape(pred, (pred.shape[0], -1))[0]
+        most_similar_topics = {t: pred[t] for t in np.argsort(pred)[::-1][:top_n]}
+        return most_similar_topics
 
     def find_close_topics_by_appearance(self, query: str, top_n=5):
         """
