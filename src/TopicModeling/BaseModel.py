@@ -1,9 +1,11 @@
 import logging
+import pickle
+import tempfile
 from abc import abstractmethod
 from collections import Counter
 from itertools import combinations
 from pathlib import Path
-from typing import List, Union
+from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -50,6 +52,15 @@ class BaseModel:
             "paraphrase-multilingual-MiniLM-L12-v2"
         )
 
+        # Create sub-directories
+        self._model_data_dir = self.model_dir.joinpath("model_data")
+        self._model_data_dir.mkdir(parents=True, exist_ok=True)
+        self._train_data_dir = self.model_dir.joinpath("train_data")
+        self._train_data_dir.mkdir(parents=True, exist_ok=True)
+        self._infer_data_dir = self.model_dir.joinpath("infer_data")
+        self._infer_data_dir.mkdir(parents=True, exist_ok=True)
+        self._temp_dir = Path(tempfile.gettempdir())
+
     @abstractmethod
     def train(self, texts: List[str]) -> None:
         pass
@@ -57,6 +68,44 @@ class BaseModel:
     @abstractmethod
     def predict(self, texts: List[str]) -> np.ndarray:
         pass
+
+    def save_model(self, path):
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load_model(cls, path):
+        with open(path, "rb") as f:
+            return pickle.load(f)
+
+    def _save_train_texts(self, texts: List[str], sep="\t"):
+        with self._train_data_dir.joinpath("corpus.txt").open(
+            "w", encoding="utf8"
+        ) as f:
+            f.writelines([f"{n}{sep}0{sep}{t}\n" for n, t in enumerate(texts)])
+
+    def _save_infer_texts(self, texts: List[str], sep="\t"):
+        with self._infer_data_dir.joinpath("corpus.txt").open(
+            "w", encoding="utf8"
+        ) as f:
+            f.writelines([f"{n}{sep}0{sep}{t}\n" for n, t in enumerate(texts)])
+
+    def _save_doctopics(self, doctopics: np.ndarray, sep="\t"):
+        with self._model_data_dir.joinpath("doc-topics.txt").open(
+            "w", encoding="utf8"
+        ) as f:
+            f.writelines(
+                [
+                    f"{n}{sep}{n}{sep}{sep.join(t)}\n"
+                    for n, t in enumerate(doctopics.astype(str))
+                ]
+            )
+
+    def _save_topickeys(self, topickeys: Dict[int, str], sep="\t"):
+        with self._model_data_dir.joinpath("topickeys.txt").open(
+            "w", encoding="utf8"
+        ) as f:
+            f.writelines([f"{k}{sep}0{sep}{v}\n" for k, v in topickeys.items()])
 
     @abstractmethod
     def get_topics_words(self, n_words: int = 10) -> List[List[str]]:
@@ -162,7 +211,7 @@ class BaseModel:
         """
         query = query.lower()
         pred = self.predict([query])
-        pred = np.reshape(pred, (pred.shape[0], -1))[0]
+        pred = np.reshape(pred, (-1, self.num_topics))[0]
         most_similar_topics = {t: pred[t] for t in np.argsort(pred)[::-1][:top_n]}
         return most_similar_topics
 

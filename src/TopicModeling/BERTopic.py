@@ -98,7 +98,9 @@ class BERTopicModel(BaseModel):
             verbose=verbose,
         )
         # self.model.fit(texts)
+        self.model.calculate_probabilities = True
         topics, probs = self.model.fit_transform(texts)
+        self.model.calculate_probabilities = False
 
         # Reduce outliers
         new_topics = self.model.reduce_outliers(
@@ -111,7 +113,18 @@ class BERTopicModel(BaseModel):
             ctfidf_model=self.ctfidf_model,
             representation_model=self.representation_model,
         )
+        self.num_topics = len(self.model.topic_labels_)
         self.logger.info("Finished training")
+
+        # Get topickeys
+        topic_keys = dict()
+        for k, v in self.model.get_topics().items():
+            topic_keys[k] = " ".join([el[0] for el in v])
+
+        # Save train data
+        self._save_train_texts(texts)
+        self._save_doctopics(probs)
+        self._save_topickeys(topic_keys)
 
     def predict(self, texts):
         self.model.calculate_probabilities = True

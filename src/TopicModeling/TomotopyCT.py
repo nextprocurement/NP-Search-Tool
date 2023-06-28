@@ -35,6 +35,24 @@ class TomotopyCTModel(BaseModel):
         pbar.close()
         self.logger.info("Finished training")
 
+        # Corpus predictions
+        probs = []
+        for d in self.model.docs:
+            probs.append(d.get_topic_dist())
+        probs = np.array(probs)
+
+        # Get topickeys
+        topic_keys = dict()
+        for topic_idx in range(num_topics):
+            topic_keys[topic_idx] = " ".join(
+                [word for word, _ in self.model.get_topic_words(topic_idx, top_n=20)]
+            )
+
+        # Save train data
+        self._save_train_texts([" ".join(t) for t in texts])
+        self._save_doctopics(probs)
+        self._save_topickeys(topic_keys)
+
     def predict(self, texts: List[str]):
         texts = [t.split() for t in texts]
         doc_inst = [self.model.make_doc(text) for text in texts]

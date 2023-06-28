@@ -1,5 +1,6 @@
 from typing import List, Union
 
+import numpy as np
 from sklearn.decomposition import NMF
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from tqdm import trange
@@ -42,8 +43,22 @@ class NMFModel(BaseModel):
         self.vectorizer = vectorizer
         tfidf = self.vectorizer.fit_transform(texts)
         self.logger.info("Texts vectorized")
-        self.model = NMF(n_components=self.num_topics, random_state=42).fit(tfidf)
+        self.model = NMF(n_components=self.num_topics, random_state=42)
+        probs = self.model.fit_transform(tfidf)
         self.logger.info("Finished training")
+
+        # Get topickeys
+        topic_keys = dict()
+        feature_names = self.vectorizer.get_feature_names_out()
+        for topic_idx, topic in enumerate(self.model.components_):
+            topic_keys[topic_idx] = " ".join(
+                [feature_names[i] for i in np.argsort(topic)[:-21:-1]]
+            )
+
+        # Save train data
+        self._save_train_texts(texts)
+        self._save_doctopics(probs)
+        self._save_topickeys(topic_keys)
 
     def predict(self, texts: List[str]):
         tfidf = self.vectorizer.transform(texts)
@@ -53,6 +68,8 @@ class NMFModel(BaseModel):
         feature_names = self.vectorizer.get_feature_names_out()
         topics = []
         for topic_idx, topic in enumerate(self.model.components_):
-            top_words = [feature_names[i] for i in topic.argsort()[: -n_words - 1 : -1]]
+            top_words = [
+                feature_names[i] for i in np.argsort(topic)[: -n_words - 1 : -1]
+            ]
             topics.append(top_words)
         return topics
