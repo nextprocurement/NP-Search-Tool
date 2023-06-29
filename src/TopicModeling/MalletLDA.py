@@ -167,7 +167,7 @@ class MalletLDAModel(BaseModel):
 
         cmd = f"{self._mallet_path} train-topics "
         # cmd += f"--config {config_file}"
-        with open("_test_models/Mallet/train_data/train.config", "r") as f:
+        with config_file.open("r") as f:
             cmd += " ".join([f"--{l.strip()}" for l in f.readlines()]).replace("=", "")
         # print(cmd)
         # print()
