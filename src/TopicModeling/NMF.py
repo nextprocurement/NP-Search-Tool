@@ -9,7 +9,7 @@ from .BaseModel import BaseModel
 
 
 class NMFModel(BaseModel):
-    def train(
+    def _model_train(
         self,
         texts: List[str],
         num_topics: int,
@@ -55,21 +55,9 @@ class NMFModel(BaseModel):
                 [feature_names[i] for i in np.argsort(topic)[:-21:-1]]
             )
 
-        # Save train data
-        self._save_train_texts(texts)
-        self._save_doctopics(probs)
-        self._save_topickeys(topic_keys)
+        return probs, topic_keys
 
-    def predict(self, texts: List[str]):
+    def _model_predict(self, texts: List[str]):
         tfidf = self.vectorizer.transform(texts)
-        return self.model.transform(tfidf)
-
-    def get_topics_words(self, n_words: int = 10):
-        feature_names = self.vectorizer.get_feature_names_out()
-        topics = []
-        for topic_idx, topic in enumerate(self.model.components_):
-            top_words = [
-                feature_names[i] for i in np.argsort(topic)[: -n_words - 1 : -1]
-            ]
-            topics.append(top_words)
-        return topics
+        pred = self.model.transform(tfidf)
+        return pred

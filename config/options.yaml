@@ -41,4 +41,4 @@ use_ngrams: all  # Which ngrams to use
   # - proposed_ngrams.txt
 
 # Number of topics for the topic model
-num_topics: 50
+num_topics: 100

@@ -13,7 +13,7 @@ from .BaseModel import BaseModel
 
 
 class BERTopicModel(BaseModel):
-    def train(
+    def _model_train(
         self,
         texts: List[str],
         num_topics: int,
@@ -121,20 +121,10 @@ class BERTopicModel(BaseModel):
         for k, v in self.model.get_topics().items():
             topic_keys[k] = " ".join([el[0] for el in v])
 
-        # Save train data
-        self._save_train_texts(texts)
-        self._save_doctopics(probs)
-        self._save_topickeys(topic_keys)
+        return probs, topic_keys
 
-    def predict(self, texts):
+    def _model_predict(self, texts):
         self.model.calculate_probabilities = True
         topics, pred = self.model.transform(texts)
         self.model.calculate_probabilities = False
         return pred
-
-    def get_topics_words(self, n_words=10):
-        topics = []
-        for topic_idx, topic in self.model.get_topics().items():
-            top_words = [word for word, _ in topic][:n_words]
-            topics.append(top_words)
-        return topics

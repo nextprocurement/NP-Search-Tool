@@ -1,15 +1,18 @@
+import json
 import logging
 import pickle
+import shutil
 import tempfile
 from abc import abstractmethod
 from collections import Counter
 from itertools import combinations
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import regex
+import sklearn
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import trange
@@ -62,12 +65,29 @@ class BaseModel:
         self._temp_dir = Path(tempfile.gettempdir())
 
     @abstractmethod
-    def train(self, texts: List[str]) -> None:
+    def _model_train(
+        self, texts: List[str], num_topics: int, **kwargs
+    ) -> Tuple[np.ndarray, Dict[int, str]]:
+        """
+        Gets the doc-topics and topic-keys
+        """
         pass
 
     @abstractmethod
-    def predict(self, texts: List[str]) -> np.ndarray:
+    def _model_predict(self, texts: List[str]) -> np.ndarray:
         pass
+
+    def train(self, texts: List[str], **kwargs):
+        probs, topic_keys = self._model_train(texts, **kwargs)
+        # Save train data
+        self._save_train_texts(texts)
+        self._save_train_doctopics(probs)
+        self._save_topickeys(topic_keys)
+
+    def predict(self, texts: List[str]):
+        probs = self._model_predict(texts)
+        # Save infer data
+        self._save_infer_doctopics(probs)
 
     def save_model(self, path):
         with open(path, "wb") as f:
@@ -78,66 +98,120 @@ class BaseModel:
         with open(path, "rb") as f:
             return pickle.load(f)
 
+    ###
+    # Save methods
+    ###
     def _save_train_texts(self, texts: List[str], sep="\t"):
-        with self._train_data_dir.joinpath("corpus.txt").open(
-            "w", encoding="utf8"
-        ) as f:
+        with self._temp_dir.joinpath("corpus.txt").open("w", encoding="utf8") as f:
             f.writelines([f"{n}{sep}0{sep}{t}\n" for n, t in enumerate(texts)])
+        shutil.copy(
+            self._temp_dir.joinpath("corpus.txt"),
+            self._train_data_dir.joinpath("corpus.txt"),
+        )
+        self.logger.info("Saved train texts")
 
     def _save_infer_texts(self, texts: List[str], sep="\t"):
-        with self._infer_data_dir.joinpath("corpus.txt").open(
-            "w", encoding="utf8"
-        ) as f:
+        with self._temp_dir.joinpath("corpus.txt").open("w", encoding="utf8") as f:
             f.writelines([f"{n}{sep}0{sep}{t}\n" for n, t in enumerate(texts)])
+        shutil.copy(
+            self._temp_dir.joinpath("corpus.txt"),
+            self._infer_data_dir.joinpath("corpus.txt"),
+        )
+        self.logger.info("Saved infer texts")
 
-    def _save_doctopics(self, doctopics: np.ndarray, sep="\t"):
-        with self._model_data_dir.joinpath("doc-topics.txt").open(
-            "w", encoding="utf8"
-        ) as f:
+    def _save_train_doctopics(self, doctopics: np.ndarray, sep="\t"):
+        with self._temp_dir.joinpath("doc-topics.txt").open("w", encoding="utf8") as f:
             f.writelines(
                 [
                     f"{n}{sep}{n}{sep}{sep.join(t)}\n"
                     for n, t in enumerate(doctopics.astype(str))
                 ]
             )
+        shutil.copy(
+            self._temp_dir.joinpath("doc-topics.txt"),
+            self._model_data_dir.joinpath("doc-topics.txt"),
+        )
+        self.logger.info("Saved train doctopics")
 
-    def _save_topickeys(self, topickeys: Dict[int, str], sep="\t"):
-        with self._model_data_dir.joinpath("topickeys.txt").open(
-            "w", encoding="utf8"
+    def _save_infer_doctopics(self, doctopics: np.ndarray, sep="\t"):
+        with self._temp_dir.joinpath("doc-topics.txt").open("w", encoding="utf8") as f:
+            f.writelines(
+                [
+                    f"{n}{sep}{n}{sep}{sep.join(t)}\n"
+                    for n, t in enumerate(doctopics.astype(str))
+                ]
+            )
+        shutil.copy(
+            self._temp_dir.joinpath("doc-topics.txt"),
+            self._infer_data_dir.joinpath("doc-topics.txt"),
+        )
+        self.logger.info("Saved infer doctopics")
+
+    def _save_topickeys(self, topickeys: Dict[int, str]):
+        with self._temp_dir.joinpath("topic-keys.json").open("w", encoding="utf8") as f:
+            json.dump(topickeys, f)
+            # f.writelines([f"{k}{sep}0{sep}{v}\n" for k, v in topickeys.items()])
+        shutil.copy(
+            self._temp_dir.joinpath("topic-keys.json"),
+            self._model_data_dir.joinpath("topic-keys.json"),
+        )
+        self.logger.info("Saved topic keys")
+
+    ###
+    # Load methods
+    ###
+    def read_doctopics(self, sep="\t"):
+        # with self._model_data_dir.joinpath("doc-topics.txt").open(
+        #     "r", encoding="utf8"
+        # ) as f:
+        #     doc_topics = [t.strip().split(sep)[-1] for t in f.readlines()]
+        with self._model_data_dir.joinpath("doc-topics.txt").open(
+            "r", encoding="utf8"
         ) as f:
-            f.writelines([f"{k}{sep}0{sep}{v}\n" for k, v in topickeys.items()])
+            doc_topics = np.loadtxt(f)[:, 2:]
+        return doc_topics
 
-    @abstractmethod
-    def get_topics_words(self, n_words: int = 10) -> List[List[str]]:
+    def read_topickeys(self) -> Dict[int, str]:
+        with self._model_data_dir.joinpath("topic-keys.json").open(
+            "r", encoding="utf8"
+        ) as f:
+            topic_keys = json.load(f)
+            # topic_keys = [t.strip().split(sep)[-1] for t in f.readlines()]
+        return topic_keys
+
+    def get_topics_words(self, n_words: int = 10) -> Dict[int, List[str]]:
         """
         Get a list of `n_words` for each topic.
         """
-        pass
+        topics = {k: v.split()[:n_words] for k, v in self.read_topickeys().items()}
+        return topics
 
     def get_topic_words(self, topic: int, n_words: int = 10) -> List[str]:
         """
         Get a list of `n_words` for the selected topic.
         """
-        return self.get_topics_words(n_words=n_words)[topic]
+        return self.get_topics_words(n_words=n_words)[str(topic)]
 
     def show_words_per_topic(self, n_words=10) -> pd.DataFrame:
         topic_words = self.get_topics_words(n_words)
-        df_topic_words = pd.DataFrame(
-            topic_words, columns=[f"Word_{i}" for i in range(n_words)]
+        df_topic_words = pd.DataFrame.from_dict(
+            topic_words, orient="index", columns=[f"Word_{i}" for i in range(n_words)]
         )
+        # df_topic_words = pd.DataFrame(
+        #     topic_words, columns=[f"Word_{i}" for i in range(n_words)]
+        # )
         df_topic_words.index.name = "Topic"
         return df_topic_words
 
     def show_topics_per_document(self, texts) -> pd.DataFrame:
-        doc_topics = self.predict(texts)
-        df_doc_topics = pd.DataFrame(
-            doc_topics, columns=[f"Topic_{i}" for i in range(doc_topics.shape[1])]
-        )
+        doc_topics = self._model_predict(texts)
+        topics = list(self.get_topics_words().keys())
+        df_doc_topics = pd.DataFrame(doc_topics, columns=[f"Topic_{i}" for i in topics])
         df_doc_topics.index.name = "Document"
         return df_doc_topics
 
     def get_topics_diversity(self, n_words=20) -> float:
-        topic_words = self.get_topics_words(n_words=n_words)
+        topic_words = self.get_topics_words(n_words=n_words).values()
         unique_words = len(set([word for topic in topic_words for word in topic]))
         return unique_words / (self.num_topics * n_words)
 
@@ -151,7 +225,7 @@ class BaseModel:
         """
         # 1.
         n_words = 20
-        topic_words = self.get_topics_words(n_words=n_words)
+        topic_words = self.get_topics_words(n_words=n_words).values()
 
         # 2.
         word_counts = Counter()
@@ -183,7 +257,10 @@ class BaseModel:
 
         return topic_pmi
 
+    ###
     # Search methods
+    ###
+    #
     # def search_topics(self, query: str, top_n=5, method="embeddings"):
     #     """
     #     Search `top_n` closest topics based on query or keyword.
@@ -205,12 +282,39 @@ class BaseModel:
     #     close_topics = self.get_words_per_topic(10).loc[top_topics]
     #     return close_topics
 
+    def find_close_docs(self, query: str, topn: int = 5):
+        """
+        Returns `topn` closest documents from the training corpus
+        """
+        # Read train doc-topics
+        # with self._model_data_dir.joinpath("doc-topics.txt").open(
+        #     "r", encoding="utf8"
+        # ) as f:
+        #     doctopics = np.loadtxt(f)[:, 2:]
+        doctopics = self.read_doctopics()
+        # Read train texts
+        with self._train_data_dir.joinpath("corpus.txt").open(
+            "r", encoding="utf8"
+        ) as f:
+            texts = [t.strip().split(maxsplit=2)[-1] for t in f.readlines()]
+
+        # Get topic prediction and reshape into valid format
+        pred = self._model_predict([query])
+        pred = np.reshape(pred, (-1, self.num_topics))
+
+        # Get closest doctopics
+        distances = sklearn.metrics.pairwise_distances(
+            pred, doctopics, metric="cosine"
+        )[0]
+        closest = np.argsort(distances)[:topn]
+        return [texts[t] for t in closest]
+
     def find_close_topics(self, query: str, top_n=5):
         """
         Given a query, find closest top_n topics.
         """
         query = query.lower()
-        pred = self.predict([query])
+        pred = self._model_predict([query])
         pred = np.reshape(pred, (-1, self.num_topics))[0]
         most_similar_topics = {t: pred[t] for t in np.argsort(pred)[::-1][:top_n]}
         return most_similar_topics
@@ -224,7 +328,11 @@ class BaseModel:
         related_topics = []
         for word in query_words:
             related_topics.extend(
-                [n for n, topic in enumerate(self.get_topics_words()) if word in topic]
+                [
+                    n
+                    for n, topic in enumerate(self.get_topics_words().values())
+                    if word in topic
+                ]
             )
         return dict(Counter(related_topics).most_common(top_n))
 
@@ -240,7 +348,7 @@ class BaseModel:
         )
 
         # Encode topics
-        topics = [" ".join(t) for t in self.get_topics_words()]
+        topics = [" ".join(t) for t in self.get_topics_words().values()]
         topic_vectors = self.sentence_model.encode(topics)
 
         # Get closest topics
@@ -264,7 +372,7 @@ class BaseModel:
         query_words = regex.findall(self.word_pattern, query)
         related_words = []
         for word in query_words:
-            for topic in self.get_topics_words():
+            for topic in self.get_topics_words().values():
                 if word in topic:
                     related_words.extend([w for w in topic if not w == word])
         return dict(Counter(related_words).most_common(top_n))

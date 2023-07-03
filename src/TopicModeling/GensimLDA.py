@@ -12,7 +12,7 @@ from .BaseModel import BaseModel
 
 
 class GensimLDAModel(BaseModel):
-    def train(self, texts: List[str], num_topics: int, iterations=400):
+    def _model_train(self, texts: List[str], num_topics: int, iterations=400):
         # Set num topics
         self.num_topics = num_topics
 
@@ -31,7 +31,7 @@ class GensimLDAModel(BaseModel):
         self.logger.info("Finished training")
 
         # Corpus predictions
-        probs = np.zeros(shape=(len(corpus), 50))
+        probs = np.zeros(shape=(len(corpus), self.num_topics))
         for d, doctopics in enumerate(self.model.get_document_topics(corpus)):
             for topic_idx, topic_prob in doctopics:
                 probs[d][topic_idx] = topic_prob
@@ -43,12 +43,9 @@ class GensimLDAModel(BaseModel):
                 list(zip(*self.model.show_topic(topic_idx, 20)))[0]
             )
 
-        # Save train data
-        self._save_train_texts([" ".join(t) for t in texts])
-        self._save_doctopics(probs)
-        self._save_topickeys(topic_keys)
+        return probs, topic_keys
 
-    def predict(self, texts: List[str]):
+    def _model_predict(self, texts: List[str]):
         # Convert texts to format
         texts = [t.split() for t in texts]
         corpus = [self.dictionary.doc2bow(text) for text in texts]
@@ -57,12 +54,3 @@ class GensimLDAModel(BaseModel):
             for topic_idx, topic_prob in self.model.get_document_topics(bow):
                 pred[d][topic_idx] = topic_prob
         return pred
-
-    def get_topics_words(self, n_words: int = 10):
-        topics = []
-        for topic_idx in range(self.model.num_topics):
-            top_words = [
-                word for word, _ in self.model.show_topic(topic_idx, topn=n_words)
-            ]
-            topics.append(top_words)
-        return topics

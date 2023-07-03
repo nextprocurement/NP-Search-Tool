@@ -8,7 +8,7 @@ from .BaseModel import BaseModel
 
 
 class TomotopyLDAModel(BaseModel):
-    def train(self, texts: List[str], num_topics: int, iterations=400):
+    def _model_train(self, texts: List[str], num_topics: int, iterations=400):
         # Set num topics
         self.num_topics = num_topics
 
@@ -47,22 +47,11 @@ class TomotopyLDAModel(BaseModel):
                 [word for word, _ in self.model.get_topic_words(topic_idx, top_n=20)]
             )
 
-        # Save train data
-        self._save_train_texts([" ".join(t) for t in texts])
-        self._save_doctopics(probs)
-        self._save_topickeys(topic_keys)
+        return probs, topic_keys
 
-    def predict(self, texts: List[str]):
+    def _model_predict(self, texts: List[str]):
         texts = [t.split() for t in texts]
         doc_inst = [self.model.make_doc(text) for text in texts]
         topic_prob, log_ll = self.model.infer(doc_inst)
-        return np.array(topic_prob)
-
-    def get_topics_words(self, n_words: int = 10):
-        topics = []
-        for topic_idx in range(self.num_topics):
-            top_words = [
-                word for word, _ in self.model.get_topic_words(topic_idx, top_n=n_words)
-            ]
-            topics.append(top_words)
-        return topics
+        pred = np.array(topic_prob)
+        return pred

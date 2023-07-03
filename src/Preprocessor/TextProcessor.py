@@ -122,7 +122,7 @@ class TextPreprocessor:
         return result.split() if rtype == "list" else result
 
     def remove_urls(self, text: str, rtype="str"):
-        result = regex.sub(r"http\S+", " ", text)
+        result = regex.sub(r"(http|www)\S+", " ", text)
         return result.split() if rtype == "list" else result
 
     # def stem_text(self, text: Union[List[str], str], rtype="list"):
