@@ -1,12 +1,4 @@
 # NextProcurement
- 
-- modelos y preguntar a admons por desagregación
-- empresas
-- grafo
-
-# docker run --gpus all --name preprocess --rm -v C:/Users/josea/Documents/NextProcurement/data:/app/data next_proc
-docker run --gpus all --name tm --rm -it -v C:\Users\josea\Documents\Trabajo\data:/app/data np_tp
-
 
 # Funcionalidad
 Este proyecto proporciona un script de preprocesamiento para cargar textos a partir de metadatos disponibles en formato parquet. Los textos son preprocesados para todas las actividades siguientes (como el modelado de tópicos y otros).

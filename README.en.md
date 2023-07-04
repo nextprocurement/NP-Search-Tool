@@ -1,7 +1,7 @@
 # Functionality
 This project provides a preprocessing script to load texts from metadata available in parquet format. The texts are preprocessed for all subsequent activities (such as topic modeling and others).
 
-# Ejecución
+# Execution
 To execute the script, simply use the following command:
 ```
 python preprocess.py [--options config/options.yaml]
