@@ -65,7 +65,7 @@ def train_test_split(df: Series, frac=0.2):
     return train, test
 
 
-def set_logger(console_log=True, file_log=True):
+def set_logger(console_log=True, file_log=True, file_loc: Union[Path, str] = "app.log"):
     # Set up the logger
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     logger = logging.getLogger(__name__)
@@ -80,7 +80,10 @@ def set_logger(console_log=True, file_log=True):
 
     # Create file handler
     if file_log:
-        file_handler = logging.FileHandler("app.log", encoding="utf-8")
+        file_loc = Path(file_loc)
+        file_loc.parents[0].mkdir(parents=True, exist_ok=True)
+        file_loc.touch()
+        file_handler = logging.FileHandler(file_loc, encoding="utf-8")
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)

@@ -36,9 +36,6 @@ def save_df(df: pd.DataFrame, dir_df: Path):
 
 #  Process text
 if __name__ == "__main__":
-    # Set logger
-    logger = set_logger(console_log=True, file_log=True)
-
     # Parse args
     parser = argparse.ArgumentParser(description="Process options")
     parser.add_argument(
@@ -52,11 +49,17 @@ if __name__ == "__main__":
     #################################
 
     # Access options
-    use_dask = options["use_dask"]
-    subsample = options["subsample"]
-    pipe = options["pipe"]
-    merge_dfs = options["merge_dfs"]
-    lang = options["lang"]
+    use_dask = options.get("use_dask", False)
+    subsample = options.get("subsample", None)
+    pipe = options.get("pipe", [])
+    merge_dfs = options.get("merge_dfs", ["minors", "insiders", "outsiders"])
+    lang = options.get("lang", "all")
+
+    # Set logger
+    dir_logger = Path(options.get("dir_logger", "app.log"))
+    console_log = options.get("console_log", True)
+    file_log = options.get("file_log", True)
+    logger = set_logger(console_log=console_log, file_log=file_log, file_loc=dir_logger)
 
     # Define directories
     # Set default values if not provided in the YAML file
