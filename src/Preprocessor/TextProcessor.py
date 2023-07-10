@@ -3,6 +3,7 @@ from typing import List, Union
 
 import enchant
 import nltk
+import pandas as pd
 import regex
 import spacy
 from nltk.stem.snowball import SnowballStemmer
@@ -134,7 +135,10 @@ class TextPreprocessor:
     def lemmatize_text(self, text: str, rtype="str"):
         doc = self.nlp(text)
         if hasattr(self, "lemmatizer"):
-            lemmatized_words = [self.lemmatizer.lemmatize_spanish(w) for w in doc]
+            # lemmatized_words = [self.lemmatizer.lemmatize_spanish(w) for w in doc]
+            lemmatized_words = (
+                pd.Series(doc).apply(self.lemmatizer.lemmatize_spanish).tolist()
+            )
         else:
             lemmatized_words = [token.lemma_ for token in doc]
         return lemmatized_words if rtype == "list" else " ".join(lemmatized_words)

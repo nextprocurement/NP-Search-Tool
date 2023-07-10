@@ -65,12 +65,10 @@ if __name__ == "__main__":
     # Set default values if not provided in the YAML file
     dir_data = Path(options.get("dir_data", "data"))
     dir_metadata = Path(options.get("dir_metadata", f"{dir_data}/metadata"))
-    dir_stopwords = Path(options.get("dir_stopwords", f"{dir_data}/stopwords"))
-    dir_ngrams = Path(options.get("dir_ngrams", f"{dir_data}/ngrams"))
     # Files directories
-    dir_vocabulary = Path(
-        options.get("dir_vocabulary", f"{dir_data}/RAE/vocabulary_extended.json")
-    )
+    dir_stopwords = options.get("dir_stopwords", None)
+    dir_ngrams = options.get("dir_ngrams", None)
+    dir_vocabulary = options.get("dir_vocabulary", None)
     dir_text_metadata = Path(
         options.get("dir_text_metadata", f"{dir_metadata}/df_text.parquet")
     )
@@ -84,9 +82,18 @@ if __name__ == "__main__":
     #################################
 
     # Load data
-    stop_words = load_item_list(dir_stopwords, use_item_list=use_stopwords)
-    ngrams = load_item_list(dir_ngrams, use_item_list=use_ngrams)
-    vocabulary = load_vocabulary(dir_vocabulary)
+    if dir_stopwords:
+        stop_words = load_item_list(Path(dir_stopwords), use_item_list=use_stopwords)
+    else:
+        stop_words = []
+    if dir_ngrams:
+        ngrams = load_item_list(Path(dir_ngrams), use_item_list=use_ngrams)
+    else:
+        ngrams = []
+    if dir_vocabulary:
+        vocabulary = load_vocabulary(Path(dir_vocabulary))
+    else:
+        vocabulary = {}
 
     # Load data
     # case df_text is not (re)created

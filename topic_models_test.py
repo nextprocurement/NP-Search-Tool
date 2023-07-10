@@ -57,11 +57,8 @@ if __name__ == "__main__":
     # Set default values if not provided in the YAML file
     dir_data = Path(options.get("dir_data", "data"))
     dir_metadata = Path(options.get("dir_metadata", f"{dir_data}/metadata"))
-    dir_stopwords = Path(options.get("dir_stopwords", f"{dir_data}/stopwords"))
     # Files directories
-    dir_vocabulary = Path(
-        options.get("dir_vocabulary", f"{dir_data}/RAE/vocabulary_extended.json")
-    )
+    dir_stopwords = options.get("dir_stopwords", None)
 
     dir_text_processed = Path(
         options.get("dir_text_processed", f"{dir_metadata}/df_processed_pd.parquet")
@@ -70,7 +67,10 @@ if __name__ == "__main__":
     use_stopwords = options.get("use_stopwords", "all")
 
     # Load data
-    stop_words = load_item_list(dir_stopwords, use_item_list=use_stopwords)
+    if dir_stopwords:
+        stop_words = load_item_list(Path(dir_stopwords), use_item_list=use_stopwords)
+    else:
+        stop_words = []
 
     #################################
 
