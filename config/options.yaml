@@ -3,7 +3,7 @@ dir_logger: /app/data/app.log # Directory for logs
 console_log: true
 file_log: true
 
-# Options
+# Preprocess Options
 use_dask: false  # Whether to use Dask for distributed computing. Set to 'true' if you have a Dask cluster.
 subsample: 300000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
 
@@ -25,16 +25,17 @@ lang:  # Languages to consider in 'lang_id' step. Can be multiple.
 # Modify these paths to fit your directory structure
 # This is the default configuration for docker image
 dir_data: /app/data  # Root data directory
-dir_metadata: /app/data/metadata  # Directory for metadata
-dir_stopwords: /app/data/stopwords  # Directory for stopwords
-dir_ngrams: /app/data/ngrams  # Directory for ngrams
-dir_vocabulary: /app/data/RAE/vocabulary_extended.json  # Path to extended vocabulary JSON
-
-dir_text_metadata: /app/data/metadata/df_text.parquet  # Path to text metadata parquet file
-dir_text_processed: /app/data/metadata/df_normalized.parquet  # Path to processed text metadata parquet file
+dir_text_processed: /app/data/metadata/df_normalized.parquet  # Path to output processed text metadata parquet file
+dir_output_models: /app/data/models/  # Path to output topic models
+dir_mallet: /app/Mallet/bin/mallet # This path shouldn't be changed when using docker
 
 # List loading options
-# Modify these values to choose which stopwords and ngrams to use. If "all", every file in the directory will be used.
+# Modify these values to choose which vocabulary, stopwords and ngrams to use.
+# If "all", every file in the directory will be used.
+# If false, the default settings will be used
+use_vocabulary: false  # Which vocabulary to use
+  # - vocabulary.txt
+  # - vocabulary_extended.txt
 use_stopwords: all  # Which stopwords to use
   # - administración.txt
   # - common_stopwords.txt

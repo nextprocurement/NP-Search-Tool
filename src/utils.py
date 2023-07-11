@@ -1,5 +1,6 @@
 import json
 import logging
+import zipfile
 from pathlib import Path
 from typing import Dict, List, Union
 
@@ -9,39 +10,68 @@ from pandas import Series
 
 # Load item_list
 def load_item_list(
-    dir_item_list: Path,
-    use_item_list: Union[str, List[str]] = [
-        "administración",
-        "municipios",
-        "common_item_list",
-    ],
+    dir_data: Union[str, Path],
+    folder_name: str,
+    use_item_list: Union[str, List[str]] = "all",
 ) -> List[str]:
+    """
+    Parameters
+    ----------
+    dir_data: str
+        Data location. Can be either directory or zip file.
+    folder_name: str
+        Inner directory to read from.
+    use_item_list: str|list(str)
+        Which elements to use from folder name.
+        If "all": get all elements
+        If list of strings: read only those specific elements.
+    """
     item_list = []
     if not use_item_list:
         return item_list
 
-    dir_item_list = Path(dir_item_list)
+    main_path = Path(dir_data)
 
-    if isinstance(use_item_list, str) or "all" in use_item_list:
+    if main_path.suffix == ".zip":
+        # If it's a zip file, create a zipfile.Path and find the specific folder within it.
+        with zipfile.ZipFile(main_path, "r") as zip_ref:
+            zip_main_path = zipfile.Path(zip_ref)
+            specific_folder = zip_main_path / folder_name
+            if not specific_folder.exists():
+                return item_list
+            if use_item_list == "all" or "all" in use_item_list:
+                use_item_list = [
+                    el.name.split(".")[0]
+                    for el in specific_folder.iterdir()
+                    if el.is_file()
+                ]
+            for el in use_item_list:
+                if specific_folder.joinpath(f"{el}.txt").is_file():
+                    item_list.extend(
+                        [
+                            w.strip()
+                            for w in specific_folder.joinpath(f"{el}.txt")
+                            .read_text(encoding="utf-8")
+                            .split("\n")
+                        ]
+                    )
+    else:
+        # If it's a directory, find the specific folder and list all txt files in it.
+        specific_folder = main_path / folder_name
+        if not specific_folder.exists():
+            return item_list
         if use_item_list == "all" or "all" in use_item_list:
-            use_item_list = [el.stem for el in dir_item_list.iterdir() if el.is_file()]
-        else:
-            use_item_list = [use_item_list]
+            use_item_list = [
+                el.name.split(".")[0]
+                for el in specific_folder.iterdir()
+                if el.is_file()
+            ]
+        for el in use_item_list:
+            if specific_folder.joinpath(f"{el}.txt").is_file():
+                with specific_folder.joinpath(f"{el}.txt").open(encoding="utf-8") as f:
+                    item_list.extend([w.strip() for w in f.readlines()])
 
-    for el in use_item_list:
-        with dir_item_list.joinpath(f"{el}.txt").open("r", encoding="utf-8") as f:
-            # item_list = {*item_list, *set([w.strip() for w in f.readlines()])}
-            item_list.extend([w.strip() for w in f.readlines()])
     item_list = set(item_list)
-
-    # item_list = list(
-    #     set(
-    #         list(item_list)
-    #         + [w.lower() for w in item_list]
-    #         + [w.upper() for w in item_list]
-    #         + [" ".join([el.capitalize() for el in w.split()]) for w in item_list]
-    #     )
-    # )
     item_list.update(set([w.lower() for w in item_list]))
     item_list.update(set([w.replace(" ", "-") for w in item_list]))
     item_list = list(item_list)

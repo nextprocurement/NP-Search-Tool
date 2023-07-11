@@ -1,6 +1,8 @@
+import io
+import zipfile
 from collections import Counter
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import pandas as pd
 import regex
@@ -30,14 +32,26 @@ def fill_na(cell, fill=[]):
 
 
 def merge_data(
-    dir_metadata: Path,
-    dir_text_metadata: Path,
+    dir_data: Union[str, Path],
+    dir_text_metadata: Union[str, Path],
     merge_dfs: List[str] = ["minors", "insiders", "outsiders"],
 ):
     """
     Merge original data parquet files into single dataframe
     """
-    dfs = [pd.read_parquet(dir_metadata.joinpath(f"{d}.parquet")) for d in merge_dfs]
+    dir_data = Path(dir_data)
+    if dir_data.suffix == ".zip":
+        # If it's a zip file, create a zipfile.Path and find the specific folder within it.
+        dfs = []
+        with zipfile.ZipFile(dir_data, "r") as zip_ref:
+            for d in merge_dfs:
+                pq_file = io.BytesIO(zip_ref.read(f"metadata/{d}.parquet"))
+                dfs.append(pd.read_parquet(pq_file))
+    else:
+        dfs = [
+            pd.read_parquet(dir_data.joinpath(f"metadata/{d}.parquet"))
+            for d in merge_dfs
+        ]
 
     # Unify texts from all sources
     dfs_text = []

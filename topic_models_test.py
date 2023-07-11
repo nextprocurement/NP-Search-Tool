@@ -56,19 +56,16 @@ if __name__ == "__main__":
     num_topics = int(options.get("num_topics", 50))
     # Set default values if not provided in the YAML file
     dir_data = Path(options.get("dir_data", "data"))
-    dir_metadata = Path(options.get("dir_metadata", f"{dir_data}/metadata"))
     # Files directories
-    dir_stopwords = options.get("dir_stopwords", None)
-
-    dir_text_processed = Path(
-        options.get("dir_text_processed", f"{dir_metadata}/df_processed_pd.parquet")
-    )
+    dir_text_processed = Path(options.get("dir_text_processed"))
+    dir_output_models = Path(options.get("dir_output_models", "output_models"))
+    dir_mallet = Path(options.get("dir_mallet"))
     # List loading options
-    use_stopwords = options.get("use_stopwords", "all")
+    use_stopwords = options.get("use_stopwords", False)
 
     # Load data
-    if dir_stopwords:
-        stop_words = load_item_list(Path(dir_stopwords), use_item_list=use_stopwords)
+    if use_stopwords:
+        stop_words = load_item_list(dir_data, "stopwords", use_item_list=use_stopwords)
     else:
         stop_words = []
 
@@ -82,6 +79,11 @@ if __name__ == "__main__":
         "preprocessed_text",
     ]
     if subsample:
+        if subsample > len(df_sample):
+            logger.warning(
+                f"Subsample of {subsample} is larger than population. Setting subsample to max value ({len(df_processed)} samples)."
+            )
+            subsample = len(df_sample)
         df_sample = df_sample.sample(n=subsample, random_state=42)
     texts_train, texts_test = train_test_split(df_sample, 0.0)
     logger.info("Data loaded.")
@@ -105,10 +107,10 @@ if __name__ == "__main__":
         # Mallet
         if m_name == "Mallet":
             mallet_model = MalletLDAModel(
-                model_dir="/app/data/models/Mallet",
+                model_dir=dir_output_models.joinpath("Mallet"),
                 # stop_words=stop_words,
                 word_min_len=4,
-                mallet_path="/app/Mallet/bin/mallet",
+                mallet_path=dir_mallet,
                 logger=logger,
             )
             mallet_model.train(
@@ -124,7 +126,7 @@ if __name__ == "__main__":
         # NMF
         elif m_name == "NMF":
             nmf_model = NMFModel(
-                model_dir="/app/data/models/NMF",
+                model_dir=dir_output_models.joinpath("NMF"),
                 # stop_words=stop_words,
                 word_min_len=4,
                 logger=logger,
@@ -135,7 +137,7 @@ if __name__ == "__main__":
         # GensimLDA
         elif m_name == "GensimLDA":
             lda_gensim_model = GensimLDAModel(
-                model_dir="/app/data/models/Gensim",
+                model_dir=dir_output_models.joinpath("Gensim"),
                 # stop_words=stop_words,
                 word_min_len=4,
                 logger=logger,
@@ -146,7 +148,7 @@ if __name__ == "__main__":
         # TomotopyLDA
         elif m_name == "TomotopyLDA":
             tomotopy_lda_model = TomotopyLDAModel(
-                model_dir="/app/data/models/TomotopyLDA",
+                model_dir=dir_output_models.joinpath("TomotopyLDA"),
                 # stop_words=stop_words,
                 word_min_len=4,
                 logger=logger,
@@ -159,7 +161,7 @@ if __name__ == "__main__":
         # TomotopyLDA
         elif m_name == "TomotopyCT":
             tomotopy_lda_model = TomotopyCTModel(
-                model_dir="/app/data/models/TomotopyCT",
+                model_dir=dir_output_models.joinpath("TomotopyCT"),
                 # stop_words=stop_words,
                 word_min_len=4,
                 logger=logger,
@@ -211,7 +213,7 @@ if __name__ == "__main__":
             )
 
             bertopic_model = BERTopicModel(
-                model_dir="/app/data/models/BERTopic",
+                model_dir=dir_output_models.joinpath("BERTopic"),
                 # stop_words=stop_words,
                 word_min_len=4,
                 logger=logger,

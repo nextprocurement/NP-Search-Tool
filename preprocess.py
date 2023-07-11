@@ -31,6 +31,7 @@ def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
 
 
 def save_df(df: pd.DataFrame, dir_df: Path):
+    dir_df.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(dir_df, engine="pyarrow")
 
 
@@ -64,63 +65,59 @@ if __name__ == "__main__":
     # Define directories
     # Set default values if not provided in the YAML file
     dir_data = Path(options.get("dir_data", "data"))
-    dir_metadata = Path(options.get("dir_metadata", f"{dir_data}/metadata"))
     # Files directories
-    dir_stopwords = options.get("dir_stopwords", None)
-    dir_ngrams = options.get("dir_ngrams", None)
-    dir_vocabulary = options.get("dir_vocabulary", None)
-    dir_text_metadata = Path(
-        options.get("dir_text_metadata", f"{dir_metadata}/df_text.parquet")
-    )
     dir_text_processed = Path(
-        options.get("dir_text_processed", f"{dir_metadata}/df_processed_pd.parquet")
+        options.get("dir_text_processed", "df_processed_pd.parquet")
     )
     # List loading options
-    use_stopwords = options.get("use_stopwords", "all")
-    use_ngrams = options.get("use_stopwords", "all")
+    use_vocabulary = options.get("use_vocabulary", False)
+    use_stopwords = options.get("use_stopwords", False)
+    use_ngrams = options.get("use_ngrams", False)
 
     #################################
 
     # Load data
-    if dir_stopwords:
-        stop_words = load_item_list(Path(dir_stopwords), use_item_list=use_stopwords)
-    else:
-        stop_words = []
-    if dir_ngrams:
-        ngrams = load_item_list(Path(dir_ngrams), use_item_list=use_ngrams)
-    else:
-        ngrams = []
-    if dir_vocabulary:
-        vocabulary = load_vocabulary(Path(dir_vocabulary))
+    if use_vocabulary:
+        vocabulary = load_item_list(
+            dir_data, "vocabulary", use_item_list=use_vocabulary
+        )
+        vocabulary = dict([w.split(",") for w in vocabulary])
     else:
         vocabulary = {}
+    if use_stopwords:
+        stop_words = load_item_list(dir_data, "stopwords", use_item_list=use_stopwords)
+    else:
+        stop_words = []
+    if use_ngrams:
+        # ngrams = load_item_list(Path(dir_ngrams), use_item_list=use_ngrams)
+        ngrams = load_item_list(dir_data, "ngrams", use_item_list=use_ngrams)
+    else:
+        ngrams = []
+
+    logger.info(f"Loaded vocabulary: {len(vocabulary)} terms.")
+    logger.info(f"Loaded stopwords: {len(stop_words)} terms.")
+    logger.info(f"Loaded ngrams: {len(ngrams)} terms.")
 
     # Load data
-    # case df_text is not (re)created
     if not "merge_data" in pipe:
         if any([p in ["lang_id", "normalization", "preprocess"] for p in pipe]):
             # dir_text_processed already exists and can be used
-            if dir_text_processed.exists():
-                df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
-            else:
-                # df_text already exists?
-                if not dir_text_metadata.exists():
-                    print(
-                        f"Error: '{dir_text_metadata}' does not exist. Create it first (call 'merge_data')."
+            if not dir_text_processed.exists():
+                logger.error(
+                    f"Error: '{dir_text_processed}' does not exist. Create it first (call 'merge_data')."
+                )
+                exit()
+            df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
+            df_processed = df_processed[
+                df_processed["text"].apply(lambda x: len(x) > 20)
+            ]
+            if subsample:
+                if subsample > len(df_processed):
+                    logger.warning(
+                        f"Subsample of {subsample} is larger than population. Setting subsample to max value ({len(df_processed)} samples)."
                     )
-                    exit()
-                else:
-                    df_text, _ = load_df(dir_text_metadata, lang=lang)
-                    df_text = df_text[df_text["text"].apply(lambda x: len(x) > 20)]
-                    if subsample:
-                        if subsample > len(df_text):
-                            print(
-                                f"Subsample of {subsample} is larger than population. Setting subsample to max value."
-                            )
-                            subsample = len(df_text)
-                        df_processed = df_text.sample(n=subsample, random_state=42)
-                    else:
-                        df_processed = df_text
+                    subsample = len(df_processed)
+                df_processed = df_processed.sample(n=subsample, random_state=42)
             df_processed_ids = df_processed.index
 
     # Number of processing steps
@@ -130,22 +127,18 @@ if __name__ == "__main__":
         logger.info(f"Stage: '{p}'")
         # Merge multiple dataframes
         if p == "merge_data":
-            merge_data(dir_metadata, dir_text_metadata, merge_dfs=merge_dfs)
+            merge_data(dir_data, dir_text_processed, merge_dfs=merge_dfs)
             logger.info("New dataframe saved.")
             # load info if it's not the last processing step
             if not proc == n_proc:
-                df_text, _ = load_df(dir_text_metadata, lang=lang)
+                df_processed, df_processed_ids_ = load_df(dir_text_processed, lang=lang)
                 if subsample:
-                    if subsample > len(df_text):
+                    if subsample > len(df_processed):
                         logger.warning(
-                            f"Subsample of {subsample} is larger than population. Setting subsample to max value ({len(df_text)} samples)."
+                            f"Subsample of {subsample} is larger than population. Setting subsample to max value ({len(df_processed)} samples)."
                         )
-                        subsample = len(df_text)
-                    df_processed_ids = random.sample(list(df_text.index), subsample)
-                    df_processed = df_text.loc[df_text.index.isin(df_processed_ids)]
-                else:
-                    df_processed_ids = df_text.index
-                    df_processed = df_text
+                        subsample = len(df_processed)
+                    df_processed.sample(n=subsample, random_state=42)
                 save_df(df_processed, dir_text_processed)
                 df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
 
