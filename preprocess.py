@@ -12,7 +12,7 @@ from tqdm import trange
 from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
-from src.utils import load_item_list, load_vocabulary, set_logger
+from src.utils import load_item_list, load_vocabulary, parallelize_function, set_logger
 
 
 def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
@@ -77,6 +77,8 @@ if __name__ == "__main__":
     #################################
 
     # Load data
+    if isinstance(merge_dfs, str):
+        merge_dfs = [merge_dfs]
     if use_vocabulary:
         vocabulary = load_item_list(
             dir_data, "vocabulary", use_item_list=use_vocabulary
@@ -117,6 +119,7 @@ if __name__ == "__main__":
                         f"Subsample of {subsample} is larger than population. Setting subsample to max value ({len(df_processed)} samples)."
                     )
                     subsample = len(df_processed)
+                logger.info(f"Sampling {subsample} elements.")
                 df_processed = df_processed.sample(n=subsample, random_state=42)
             df_processed_ids = df_processed.index
 
@@ -127,7 +130,7 @@ if __name__ == "__main__":
         logger.info(f"Stage: '{p}'")
         # Merge multiple dataframes
         if p == "merge_data":
-            merge_data(dir_data, dir_text_processed, merge_dfs=merge_dfs)
+            merge_data(dir_data, dir_text_processed, merge_dfs=merge_dfs, logger=logger)
             logger.info("New dataframe saved.")
             # load info if it's not the last processing step
             if not proc == n_proc:
@@ -138,7 +141,8 @@ if __name__ == "__main__":
                             f"Subsample of {subsample} is larger than population. Setting subsample to max value ({len(df_processed)} samples)."
                         )
                         subsample = len(df_processed)
-                    df_processed.sample(n=subsample, random_state=42)
+                    logger.info(f"Sampling {subsample} elements.")
+                    df_processed = df_processed.sample(n=subsample, random_state=42)
                 save_df(df_processed, dir_text_processed)
                 df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
 
@@ -195,10 +199,9 @@ if __name__ == "__main__":
 
             if use_dask:
                 for i in t:
-                    # ids = df_processed_ids[i : i + step]
                     ids = df_processed.loc[
                         df_processed["normalized_text"].isna(), "normalized_text"
-                    ].index[i : i + step]
+                    ].index[:step]
                     aux = dd.from_pandas(
                         df_processed.loc[ids][["text"]], npartitions=100
                     )
@@ -215,10 +218,9 @@ if __name__ == "__main__":
 
             else:
                 for i in t:
-                    # ids = df_processed_ids[i : i + step]
                     ids = df_processed.loc[
                         df_processed["normalized_text"].isna(), "normalized_text"
-                    ].index[i : i + step]
+                    ].index[:step]
                     df_processed.loc[ids, "normalized_text"] = df_processed.loc[
                         ids, "text"
                     ].apply(preprocessor_normalizer.preprocess)
@@ -267,12 +269,9 @@ if __name__ == "__main__":
             t = trange(skip, len(df_processed), step, desc="", leave=True)
             if use_dask:
                 for i in t:
-                    # t.set_description(f"")
-                    # t.refresh()
-                    # ids = df_processed_ids[i : i + step]
                     ids = df_processed.loc[
                         df_processed["preprocessed_text"].isna(), "preprocessed_text"
-                    ].index[i : i + step]
+                    ].index[:step]
                     aux = dd.from_pandas(
                         df_processed.loc[ids][["text"]], npartitions=100
                     )
@@ -289,16 +288,20 @@ if __name__ == "__main__":
                     )
 
             else:
+                workers = 5
                 for i in t:
-                    # t.set_description(f"")
-                    # t.refresh()
-                    # ids = df_processed_ids[i : i + step]
                     ids = df_processed.loc[
                         df_processed["preprocessed_text"].isna(), "preprocessed_text"
-                    ].index[i : i + step]
-                    df_processed.loc[ids, "preprocessed_text"] = df_processed.loc[
-                        ids, "text"
-                    ].apply(preprocessor_full.preprocess)
+                    ].index[:step]
+                    # df_processed.loc[ids, "preprocessed_text"] = df_processed.loc[
+                    #     ids, "text"
+                    # ].apply(preprocessor_full.preprocess)
+                    df_processed.loc[ids, "preprocessed_text"] = parallelize_function(
+                        preprocessor_full.preprocess,
+                        df_processed.loc[ids, "text"],
+                        workers=workers,
+                        prefer="threads",
+                    )
 
                     # Save
                     save_df(df_processed, dir_text_processed)

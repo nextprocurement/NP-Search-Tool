@@ -5,7 +5,19 @@ from pathlib import Path
 from typing import Dict, List, Union
 
 import regex
+from joblib import Parallel, delayed
 from pandas import Series
+
+
+def parallelize_function(
+    func, data: Union[Series, List], workers=-1, prefer="threads", *args, **kwargs
+):
+    results = Parallel(n_jobs=workers, prefer=prefer, verbose=0)(
+        delayed(func)(x, *args, **kwargs) for x in data
+    )
+    if isinstance(data, Series):
+        return Series(results, index=data.index)
+    return results
 
 
 # Load item_list

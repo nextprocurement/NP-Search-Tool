@@ -1,6 +1,7 @@
 import io
 import zipfile
 from collections import Counter
+from logging import Logger
 from pathlib import Path
 from typing import List, Union
 
@@ -35,23 +36,42 @@ def merge_data(
     dir_data: Union[str, Path],
     dir_text_metadata: Union[str, Path],
     merge_dfs: List[str] = ["minors", "insiders", "outsiders"],
+    logger: Logger = None,
 ):
     """
     Merge original data parquet files into single dataframe
     """
     dir_data = Path(dir_data)
+    dfs = []
+
     if dir_data.suffix == ".zip":
         # If it's a zip file, create a zipfile.Path and find the specific folder within it.
-        dfs = []
         with zipfile.ZipFile(dir_data, "r") as zip_ref:
+            all_files = zip_ref.namelist()
             for d in merge_dfs:
-                pq_file = io.BytesIO(zip_ref.read(f"metadata/{d}.parquet"))
-                dfs.append(pd.read_parquet(pq_file))
+                file_path = f"metadata/{d}.parquet"
+                if file_path in all_files:
+                    pq_file = io.BytesIO(zip_ref.read(file_path))
+                    dfs.append(pd.read_parquet(pq_file))
+                elif logger:
+                    logger.warning(
+                        f"File {d}.parquet does not exist in the zip file, skipping."
+                    )
+                else:
+                    continue
     else:
-        dfs = [
-            pd.read_parquet(dir_data.joinpath(f"metadata/{d}.parquet"))
-            for d in merge_dfs
-        ]
+        for d in merge_dfs:
+            file_path = dir_data.joinpath(f"metadata/{d}.parquet")
+            if file_path.exists():
+                dfs.append(pd.read_parquet(file_path))
+            elif logger:
+                logger.warning(f"File {d}.parquet does not exist, skipping.")
+            else:
+                continue
+    if not dfs:
+        if logger:
+            logger.error("No dataframes to merge.")
+        return
 
     # Unify texts from all sources
     dfs_text = []

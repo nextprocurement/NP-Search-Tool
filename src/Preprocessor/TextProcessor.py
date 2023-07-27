@@ -80,19 +80,25 @@ class TextPreprocessor:
         if stopwords:
             self.stopwords = set(stopwords)
 
-            self._stw_cased = sorted(list(set(self.stopwords)), key=len, reverse=True)
-            self._stw_uncased = sorted(
-                list(set([w.lower() for w in self.stopwords])), key=len, reverse=True
-            )
+            self._stw_cased = set(self.stopwords)
+            self._stw_uncased = set([w.lower() for w in self.stopwords])
             pattern = (
                 r"(?<![a-zA-Z\u00C0-\u024F\d\-\·\.\'])(?:"
-                + "|".join(regex.escape(stopword) for stopword in self._stw_cased)
+                + "|".join(
+                    regex.escape(stopword)
+                    for stopword in sorted(list(self._stw_cased), key=len, reverse=True)
+                )
                 + r")(?![a-zA-Z\u00C0-\u024F\d\-\·\.\'])"
             )
             self._stopwords_regex_cased = regex.compile(pattern)
             pattern = (
                 r"(?<![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])(?:"
-                + "|".join(regex.escape(stopword) for stopword in self._stw_uncased)
+                + "|".join(
+                    regex.escape(stopword)
+                    for stopword in sorted(
+                        list(self._stw_uncased), key=len, reverse=True
+                    )
+                )
                 + r")(?![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])"
             )
             self._stopwords_regex_uncased = regex.compile(pattern, regex.IGNORECASE)
