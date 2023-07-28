@@ -41,6 +41,8 @@ def load_item_list(
     item_list = []
     if not use_item_list:
         return item_list
+    if isinstance(use_item_list, str):
+        use_item_list = [use_item_list]
 
     main_path = Path(dir_data)
 
@@ -51,7 +53,7 @@ def load_item_list(
             specific_folder = zip_main_path / folder_name
             if not specific_folder.exists():
                 return item_list
-            if use_item_list == "all" or "all" in use_item_list:
+            if "all" in use_item_list:
                 use_item_list = [
                     el.name.split(".")[0]
                     for el in specific_folder.iterdir()
@@ -72,7 +74,7 @@ def load_item_list(
         specific_folder = main_path / folder_name
         if not specific_folder.exists():
             return item_list
-        if use_item_list == "all" or "all" in use_item_list:
+        if "all" in use_item_list:
             use_item_list = [
                 el.name.split(".")[0]
                 for el in specific_folder.iterdir()
