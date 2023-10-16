@@ -2,7 +2,7 @@ import regex
 import spacy
 from unidecode import unidecode
 
-from .utils import rules_irreg, rules_non_unique, rules_other, rules_unique
+from .conjugation_rules import rules_irreg, rules_non_unique, rules_other, rules_unique
 
 
 class Lemmatizer:

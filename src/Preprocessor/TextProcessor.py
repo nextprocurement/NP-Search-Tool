@@ -9,6 +9,7 @@ import spacy
 from nltk.stem.snowball import SnowballStemmer
 from unidecode import unidecode
 
+from src.utils import set_logger
 from .Lemmatizer import Lemmatizer
 from .NgramProcessor import replace_ngrams
 
@@ -16,7 +17,7 @@ from .NgramProcessor import replace_ngrams
 class TextPreprocessor:
     def __init__(
         self,
-        methods: List[str] = ["clean_text"],
+        methods: List[str] = [],
         stopwords: List[str] = [],
         vocabulary: dict = {},
         ngrams: List[str] = [],
@@ -48,14 +49,45 @@ class TextPreprocessor:
         ngrams: list(str) [Optional]
             list of ngrams to find in text and convert into unique word (e.g. arrtificial intelligence->arrtificial-intelligence)
         """
+        self.pipe = []
+        self.method_map = {
+            "lowercase": self.lowercase,
+            "remove_tildes": self.remove_tildes,
+            "remove_extra_spaces": self.remove_extra_spaces,
+            "remove_punctuation": self.remove_punctuation,
+            "remove_urls": self.remove_urls,
+            # "stem_text": self.stem_text,
+            "lemmatize_text": self.lemmatize_text,
+            "pos_tagging": self.pos_tagging,
+            "clean_text": self.clean_text,
+            "convert_ngrams": self.convert_ngrams,
+            "remove_stopwords": self.remove_stopwords,
+            "correct_spelling": self.correct_spelling,
+            "tokenize_text": self.tokenize_text,
+        }
+
+        self.method_times = dict()
         # Set logger
         if logger:
             self.logger = logger
         else:
-            self.logger = logging.getLogger(__name__)
+            self.logger = set_logger(console_log=True, file_log=False)
 
         # Params
-        self.methods = methods
+        self.methods = []
+        for el in methods:
+            if el.get("method") in self.method_map:
+                # self.methods.append({"method": self.method_map.get(el["method"]), })
+                self.methods.append(
+                    {
+                        "method": self.method_map[el["method"]],
+                        "args": el.get("args", {}),
+                    }
+                )
+            else:
+                logger.warning(f"Method '{el.get('method')}' not in available methods.")
+
+        # Kwargs
         self.stemmer = SnowballStemmer("spanish")
         self.spellchecker = enchant.Dict("es_ES")  # Initialize the spellchecker
         # self.spellchecker = SpellChecker(language="es", distance=1)
@@ -102,43 +134,48 @@ class TextPreprocessor:
                 + r")(?![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])"
             )
             self._stopwords_regex_uncased = regex.compile(pattern, regex.IGNORECASE)
-
+        else:
+            self.logger.info("No stopwords")
         # Ngrams
         if ngrams:
             self.ngrams = {tuple(el.split()): el.replace(" ", "-") for el in ngrams}
             self._ngram_size = max([len(k) for k in self.ngrams.keys()])
+        else:
+            self.logger.info("No ngrams")
 
     def __repr__(self):
-        return f"TextPreprocessor(methods={self.methods})"
+        return (
+            f"TextPreprocessor(methods={[m['method'].__name__ for m in self.methods]})"
+        )
 
-    def lowercase(self, text: str, rtype="str"):
+    def lowercase(self, text: str) -> str:
         result = text.lower()
-        return result.split() if rtype == "list" else result
+        return result
 
-    def remove_tildes(self, text: str, rtype="str"):
+    def remove_tildes(self, text: str) -> str:
         result = unidecode(text)
-        return result.split() if rtype == "list" else result
+        return result
 
-    def remove_extra_spaces(self, text: str, rtype="str"):
+    def remove_extra_spaces(self, text: str) -> str:
         # result = regex.sub(r"\s+", " ", text)
         result = text.split()
-        return result if rtype == "list" else " ".join(result)
+        return " ".join(result)
 
-    def remove_punctuation(self, text: str, rtype="str"):
+    def remove_punctuation(self, text: str) -> str:
         result = regex.sub(r"\p{P}", "", text)
-        return result.split() if rtype == "list" else result
+        return result
 
-    def remove_urls(self, text: str, rtype="str"):
+    def remove_urls(self, text: str) -> str:
         result = regex.sub(r"(http|www)\S+", " ", text)
-        return result.split() if rtype == "list" else result
+        return result
 
-    # def stem_text(self, text: Union[List[str], str], rtype="list"):
+    # def stem_text(self, text: Union[List[str], str])->str:
     #     if isinstance(text, str):
     #         text = text.split()
     #     stemmed_words = [self.stemmer.stem(word) for word in text]
-    #     return stemmed_words if rtype == "list" else " ".join(stemmed_words)
+    #     return " ".join(stemmed_words)
 
-    def lemmatize_text(self, text: str, rtype="str"):
+    def lemmatize_text(self, text: str) -> str:
         doc = self.nlp(text)
         if hasattr(self, "lemmatizer"):
             # lemmatized_words = [self.lemmatizer.lemmatize_spanish(w) for w in doc]
@@ -147,19 +184,19 @@ class TextPreprocessor:
             )
         else:
             lemmatized_words = [token.lemma_ for token in doc]
-        return lemmatized_words if rtype == "list" else " ".join(lemmatized_words)
+        return " ".join(lemmatized_words)
 
-    def tokenize_text(self, text: str):
+    def tokenize_text(self, text: str) -> List[str]:
         words = nltk.word_tokenize(text)
         return words
 
-    def pos_tagging(self, text: str, rtype="str"):
+    def pos_tagging(self, text: str) -> str:
         words = self.tokenize_text(text)
         tagged_words = nltk.pos_tag(words)
         result = [f"{word}/{tag}" for word, tag in tagged_words]
-        return result if rtype == "list" else " ".join(result)
+        return " ".join(result)
 
-    def clean_text(self, text: str, min_len: int = 2, rtype="str"):
+    def clean_text(self, text: str, min_len: int = 2) -> str:
         """
         min_len: int
             Minimum number of letters for a word to be included. Must be at least 2.
@@ -187,12 +224,11 @@ class TextPreprocessor:
             f"(?![a-zA-Z\u00C0-\u024F\d])"
         )
         cleaned_text = regex.findall(pattern, text, flags=regex.UNICODE)
-        if rtype == "str":
-            cleaned_text = str(" ".join(cleaned_text))
+        cleaned_text = str(" ".join(cleaned_text))
         # cleaned_text = regex.sub(pattern, "", text)
         return cleaned_text
 
-    def convert_ngrams(self, text: str, include_stopwords: bool = True, rtype="str"):
+    def convert_ngrams(self, text: str, include_stopwords: bool = True) -> str:
         """
         Convert ngrams in text to unigrams separated by "-".
         If `include_stopwords`: also replace stopwords with spaces (" ")
@@ -210,19 +246,14 @@ class TextPreprocessor:
             ngram_size = self._ngram_size
 
         ngram_text = replace_ngrams(text, ngrams, ngram_size=ngram_size)
-        if rtype == "list":
-            ngram_text = ngram_text.split()
         return ngram_text
 
     def remove_stopwords(
         self,
         text: Union[List[str], str],
-        rtype="str",
         ignore_case=True,
-        # fast: bool = False,
-    ):
+    ) -> str:
         """
-        If `fast`: check only words separated by space (" ").
         If there is a stopword that contains space, it will not be removed.
         This is useful if previously `convert_ngrams` has been called with stopwords option.
         """
@@ -248,9 +279,7 @@ class TextPreprocessor:
                 filtered_text = self._stopwords_regex_uncased.sub("", text)
             else:
                 filtered_text = self._stopwords_regex_cased.sub("", text)
-            filtered_text = self.remove_extra_spaces(filtered_text, rtype="str")
-            if rtype == "list":
-                filtered_text = filtered_text.split()
+            filtered_text = self.remove_extra_spaces(filtered_text)
         else:
             if ignore_case:
                 filtered_text = [
@@ -258,11 +287,10 @@ class TextPreprocessor:
                 ]
             else:
                 filtered_text = [el for el in text if el not in self._stw_cased]
-            if rtype == "str":
-                filtered_text = " ".join(filtered_text)
+            filtered_text = " ".join(filtered_text)
         return filtered_text
 
-    def correct_spelling(self, text: str, rtype="str"):
+    def correct_spelling(self, text: str) -> str:
         words = text.split()
         corrected_words = []
         for word in words:
@@ -279,32 +307,12 @@ class TextPreprocessor:
                     corrected_words.append(suggestions[0])
                 else:
                     corrected_words.append(word)
-        return corrected_words if rtype == "list" else " ".join(corrected_words)
+        return " ".join(corrected_words)
 
-    def preprocess(self, text: str, rtype=None):
-        for el in self.methods:
-            method = ""
-            args = ()
-            kwargs = {}
-            if isinstance(el, str):
-                # Method with no arguments
-                method = el
-            elif isinstance(el, tuple):
-                # Method with arguments
-                for a in el:
-                    if isinstance(a, str):
-                        method = a
-                    elif isinstance(a, tuple):
-                        args = a
-                    elif isinstance(a, dict):
-                        kwargs = a
-            if hasattr(self, method):
-                # self.logger.info(f"Processing text: '{method}'.")
-                if rtype:
-                    text = getattr(self, method)(text, *args, **kwargs, rtype=rtype)
-                else:
-                    text = getattr(self, method)(text, *args, **kwargs)
-            else:
-                # self.logger.warning(f"Method '{method}' does not exist.")
-                pass
-        return text
+    def preprocess(self, text: str, rtype: str = "string") -> str:
+        for method_info in self.methods:
+            method = method_info.get("method")
+            args = method_info.get("args", {})
+            text = method(text, **args)
+
+        return text if rtype == "string" else text.split()

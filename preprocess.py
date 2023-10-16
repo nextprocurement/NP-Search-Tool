@@ -12,7 +12,12 @@ from tqdm import trange
 from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
-from src.utils import load_item_list, load_vocabulary, parallelize_function, set_logger
+from src.utils import (
+    load_item_list,
+    parallelize_function,
+    set_logger,
+    parallelize_function_with_progress_bar,
+)
 
 
 def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
@@ -83,7 +88,9 @@ if __name__ == "__main__":
         vocabulary = load_item_list(
             dir_data, "vocabulary", use_item_list=use_vocabulary
         )
-        vocabulary = dict([w.split(",") for w in vocabulary])
+        vocabulary = {
+            el.split(":")[0].strip(): el.split(":")[1].strip() for el in vocabulary
+        }
     else:
         vocabulary = {}
     if use_stopwords:
@@ -176,10 +183,10 @@ if __name__ == "__main__":
         elif p == "normalization":
             preprocessor_normalizer = TextPreprocessor(
                 methods=[
-                    "lowercase",
-                    "remove_urls",
-                    ("clean_text", {"min_len": 1}),
-                    # "convert_ngrams",
+                    {"method": "lowercase"},
+                    {"method": "remove_urls"},
+                    {"method": "clean_text", "args": {"min_len": 1}},
+                    # {"method": "convert_ngrams"},
                 ],
                 # ngrams=ngrams,
                 logger=logger,
@@ -241,14 +248,14 @@ if __name__ == "__main__":
         elif p == "preprocess":
             preprocessor_full = TextPreprocessor(
                 methods=[
-                    "lowercase",
-                    "remove_urls",
-                    "lemmatize_text",
-                    ("clean_text", {"min_len": 1}),
-                    "convert_ngrams",
-                    ("clean_text", {"min_len": 2}),
-                    "remove_stopwords",
-                    # "tokenize_text",
+                    {"method": "lowercase"},
+                    {"method": "remove_urls"},
+                    {"method": "lemmatize_text"},
+                    {"method": "clean_text", "args": {"min_len": 1}},
+                    {"method": "convert_ngrams"},
+                    {"method": "clean_text", "args": {"min_len": 2}},
+                    {"method": "remove_stopwords"},
+                    # {"method": "tokenize_text"},
                 ],
                 stopwords=stop_words,
                 vocabulary=vocabulary,
@@ -288,7 +295,7 @@ if __name__ == "__main__":
                     )
 
             else:
-                workers = 5
+                workers = -1
                 for i in t:
                     ids = df_processed.loc[
                         df_processed["preprocessed_text"].isna(), "preprocessed_text"
@@ -296,7 +303,18 @@ if __name__ == "__main__":
                     # df_processed.loc[ids, "preprocessed_text"] = df_processed.loc[
                     #     ids, "text"
                     # ].apply(preprocessor_full.preprocess)
-                    df_processed.loc[ids, "preprocessed_text"] = parallelize_function(
+
+                    # df_processed.loc[ids, "preprocessed_text"] = parallelize_function(
+                    #     preprocessor_full.preprocess,
+                    #     df_processed.loc[ids, "text"],
+                    #     workers=workers,
+                    #     prefer="threads",
+                    #     # batch_size=100,
+                    # )
+
+                    df_processed.loc[
+                        ids, "preprocessed_text"
+                    ] = parallelize_function_with_progress_bar(
                         preprocessor_full.preprocess,
                         df_processed.loc[ids, "text"],
                         workers=workers,
