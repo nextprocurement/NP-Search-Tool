@@ -210,6 +210,10 @@ class BaseModel:
         df_doc_topics.index.name = "Document"
         return df_doc_topics
 
+    ###
+    # Stat methods
+    ###
+
     def get_topics_diversity(self, n_words=20) -> float:
         topic_words = self.get_topics_words(n_words=n_words).values()
         unique_words = len(set([word for topic in topic_words for word in topic]))

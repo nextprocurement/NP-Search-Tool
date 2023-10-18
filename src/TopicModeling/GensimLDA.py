@@ -3,10 +3,6 @@ from typing import List
 import numpy as np
 from gensim.corpora import Dictionary
 from gensim.models import LdaModel, LdaMulticore
-from tqdm import trange
-
-from src.Preprocessor.NgramProcessor import PMI
-from src.utils import load_item_list, load_vocabulary
 
 from .BaseModel import BaseModel
 

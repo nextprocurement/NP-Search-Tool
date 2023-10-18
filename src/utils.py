@@ -19,11 +19,32 @@ def parallelize_function(
     workers=-1,
     prefer="processes",
     output: str = "series",
-    batch_size="auto",
     *args,
     **kwargs,
 ):
-    results = Parallel(n_jobs=workers, prefer=prefer, verbose=0, batch_size=batch_size)(
+    """
+    Parallelizes function execution
+
+    Parameters:
+    -----------
+    func:
+        Function to be parallelized
+    data:
+        Data to be processed
+    workers:
+        Number of worker processes
+    prefer:
+        Preferred backend for parallelization ("processes" or "threads")
+    output:
+        Type of output ("series" or "list")
+    args, kwargs:
+        Additional arguments for the function
+
+    Returns:
+    --------
+    Processed results as a Pandas Series or List
+    """
+    results = Parallel(n_jobs=workers, prefer=prefer, verbose=0)(
         delayed(func)(x, *args, **kwargs) for x in data
     )
     results = list(results)
@@ -59,10 +80,10 @@ def tqdm_joblib(tqdm_object):
 def parallelize_function_with_progress_bar(
     func,
     data: Union[pd.Series, List],
-    desc: str = "",
     workers=-1,
     prefer="processes",
     output: str = "series",
+    desc: str = "",
     *args,
     **kwargs,
 ):
@@ -75,16 +96,14 @@ def parallelize_function_with_progress_bar(
         Function to be parallelized
     data:
         Data to be processed
-    batch_size:
-        Size of each batch of data
-    desc:
-        Description for the progress bar
     workers:
         Number of worker processes
     prefer:
         Preferred backend for parallelization
     output:
-        Type of output ('series' or 'list')
+        Type of output ("series" or "list")
+    desc:
+        Description for the progress bar
     args, kwargs:
         Additional arguments for the function
 
@@ -181,12 +200,6 @@ def load_item_list(
     return item_list
 
 
-def load_vocabulary(dir_vocabulary: Path) -> Dict[str, str]:
-    with dir_vocabulary.open("r", encoding="utf8") as f:
-        vocabulary = json.load(f)
-    return vocabulary
-
-
 def train_test_split(df: Series, frac=0.2):
     """
     Split a pd.Series into train and test samples.
@@ -200,7 +213,6 @@ def set_logger(console_log=True, file_log=True, file_loc: Union[Path, str] = "ap
     # Set up the logger
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
 
     # Create console handler
     if console_log:
