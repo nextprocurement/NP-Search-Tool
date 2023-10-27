@@ -13,7 +13,6 @@ from hdbscan import HDBSCAN
 from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from tabulate import tabulate
-from tqdm import trange
 from umap import UMAP
 
 from src.TopicModeling import BaseModel
