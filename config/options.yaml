@@ -2,6 +2,8 @@
 dir_logger: /app/data/app.log # Directory for logs
 console_log: true
 file_log: true
+log_level: INFO  # CRITICAL FATAL ERROR WARN WARNING INFO DEBUG NOTSET
+logger_name: app-log
 
 # Preprocess Options
 use_dask: false  # Whether to use Dask for distributed computing. Set to 'true' if you have a Dask cluster.

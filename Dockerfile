@@ -103,8 +103,9 @@ CMD ["/bin/bash"]
 
 # docker run \
 #     --gpus all \
-#     --name preprocess \
+#     --name some_name \
 #     --rm \
+#     -it
 #     -v /path/to/your/local/data:/app/data \
 #     next_proc
 

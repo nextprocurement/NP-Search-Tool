@@ -10,7 +10,7 @@ import pandas as pd
 import regex
 from joblib import Parallel, delayed
 from pandas import Series
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 def parallelize_function(
@@ -18,7 +18,11 @@ def parallelize_function(
     data: Union[pd.Series, List],
     workers=-1,
     prefer="processes",
-    output: str = "series",
+    output: str = "list",
+    show_progress: bool = True,
+    desc: str = "",
+    leave: bool = False,
+    position: int = 0,
     *args,
     **kwargs,
 ):
@@ -31,12 +35,20 @@ def parallelize_function(
         Function to be parallelized
     data:
         Data to be processed
-    workers:
-        Number of worker processes
-    prefer:
+    workers: int
+        Number of worker processes. Default -1 (all cores)
+    prefer: str
         Preferred backend for parallelization ("processes" or "threads")
     output:
         Type of output ("series" or "list")
+    show_progress: bool
+        If `True` a progress bar is shown.
+    desc: str
+        Description for the progress bar.
+    leave: bool
+        If `True` keeps all traces of the progress bar.
+    position: int
+        Specify the line offset to print this bar (starting from 0)
     args, kwargs:
         Additional arguments for the function
 
@@ -44,12 +56,23 @@ def parallelize_function(
     --------
     Processed results as a Pandas Series or List
     """
-    results = Parallel(n_jobs=workers, prefer=prefer, verbose=0)(
-        delayed(func)(x, *args, **kwargs) for x in data
-    )
+
+    if show_progress:
+        with tqdm_joblib(
+            tqdm(desc=desc, total=len(data), leave=leave, position=position)
+        ) as progress_bar:
+            results = Parallel(n_jobs=workers, prefer=prefer, verbose=0)(
+                delayed(func)(x, *args, **kwargs) for x in data
+            )
+    else:
+        results = Parallel(n_jobs=workers, prefer=prefer, verbose=0)(
+            delayed(func)(x, *args, **kwargs) for x in data
+        )
+
     results = list(results)
     if output == "series" and isinstance(data, pd.Series):
-        return pd.Series(results, index=data.index)
+        results = pd.Series(results, index=data.index)
+        return results
     return results
 
 
@@ -75,55 +98,6 @@ def tqdm_joblib(tqdm_object):
     finally:
         joblib.parallel.BatchCompletionCallBack = old_batch_callback
         tqdm_object.close()
-
-
-def parallelize_function_with_progress_bar(
-    func,
-    data: Union[pd.Series, List],
-    workers=-1,
-    prefer="processes",
-    output: str = "series",
-    desc: str = "",
-    *args,
-    **kwargs,
-):
-    """
-    Parallelizes function execution with a progress bar and returns results.
-
-    Parameters:
-    -----------
-    func:
-        Function to be parallelized
-    data:
-        Data to be processed
-    workers:
-        Number of worker processes
-    prefer:
-        Preferred backend for parallelization
-    output:
-        Type of output ("series" or "list")
-    desc:
-        Description for the progress bar
-    args, kwargs:
-        Additional arguments for the function
-
-    Returns:
-    --------
-    Processed results as a Pandas Series or List
-    """
-
-    with tqdm_joblib(tqdm(desc=desc, total=len(data), leave=False)) as progress_bar:
-        results = parallelize_function(
-            func,
-            data,
-            workers=workers,
-            prefer=prefer,
-            *args,
-            **kwargs,
-        )
-    if output == "series" and isinstance(data, pd.Series):
-        return pd.Series(results, index=data.index)
-    return results
 
 
 # Load item_list
@@ -209,29 +183,39 @@ def train_test_split(df: Series, frac=0.2):
     return train, test
 
 
-def set_logger(console_log=True, file_log=True, file_loc: Union[Path, str] = "app.log"):
+def set_logger(
+    console_log: bool = True,
+    file_log: bool = True,
+    file_loc: Union[Path, str] = "app.log",
+    log_level: Union[
+        int, str
+    ] = "INFO",  # CRITICAL FATAL ERROR WARN WARNING INFO DEBUG NOTSET
+    logger_name: str = "app-log",
+):
     # Set up the logger
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(log_level)
 
     # Create console handler
     if console_log:
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        # console_handler.setLevel(log_level)
         console_handler.setFormatter(formatter)
+        # print(console_handler)
         logger.addHandler(console_handler)
-
+    print(logger)
     # Create file handler
     if file_log:
         file_loc = Path(file_loc)
         file_loc.parents[0].mkdir(parents=True, exist_ok=True)
         file_loc.touch()
         file_handler = logging.FileHandler(file_loc, encoding="utf-8")
-        file_handler.setLevel(logging.INFO)
+        # file_handler.setLevel(log_level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-
-    # logger.info("Log created.")
+    # print(logger)
+    logger.info("Log created.")
     return logger
 
 

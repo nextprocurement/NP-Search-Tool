@@ -1,33 +1,28 @@
 import argparse
-import logging
-import random
 from pathlib import Path
-from typing import List, Union
+from typing import List, Tuple, Union
 
 import dask.dataframe as dd
 import pandas as pd
 import yaml
-from tqdm import trange
+from tqdm.auto import trange
 
 from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
-from src.utils import (
-    load_item_list,
-    parallelize_function,
-    set_logger,
-    parallelize_function_with_progress_bar,
-)
+from src.utils import load_item_list, parallelize_function, set_logger
 
 
-def load_df(dir_df: Path, lang: Union[str, List[str]] = "all"):
+def load_df(
+    dir_df: Path, lang: Union[str, List[str]] = "all"
+) -> Tuple[pd.DataFrame, pd.Index]:
     df = None
 
     df = pd.read_parquet(dir_df)
     # Choose languages
     if lang and "lang" in df.columns:
         if lang == "all":
-            return df
+            return df, df.index
         if isinstance(lang, str):
             lang = [lang]
         df = df[df["lang"].isin(lang)]
@@ -65,7 +60,15 @@ if __name__ == "__main__":
     dir_logger = Path(options.get("dir_logger", "app.log"))
     console_log = options.get("console_log", True)
     file_log = options.get("file_log", True)
-    logger = set_logger(console_log=console_log, file_log=file_log, file_loc=dir_logger)
+    log_level = options.get("log_level", "INFO")
+    logger_name = options.get("logger_name", "app-logger")
+    logger = set_logger(
+        console_log=console_log,
+        file_log=file_log,
+        file_loc=dir_logger,
+        log_level=log_level,
+        logger_name=logger_name,
+    )
 
     # Define directories
     # Set default values if not provided in the YAML file
@@ -202,7 +205,9 @@ if __name__ == "__main__":
                 skip = df_processed["normalized_text"].dropna().size
             else:
                 df_processed["normalized_text"] = None
-            t = trange(skip, len(df_processed), step, desc="", leave=True)
+            t = trange(
+                skip, len(df_processed), step, desc="Normalizing texts", leave=True
+            )
 
             if use_dask:
                 for i in t:
@@ -273,7 +278,9 @@ if __name__ == "__main__":
                 skip = df_processed["preprocessed_text"].dropna().size
             else:
                 df_processed["preprocessed_text"] = None
-            t = trange(skip, len(df_processed), step, desc="", leave=True)
+            t = trange(
+                skip, len(df_processed), step, desc="Preprocessing texts", leave=True
+            )
             if use_dask:
                 for i in t:
                     ids = df_processed.loc[
@@ -295,30 +302,22 @@ if __name__ == "__main__":
                     )
 
             else:
-                workers = -1
+                workers = 50
                 for i in t:
                     ids = df_processed.loc[
                         df_processed["preprocessed_text"].isna(), "preprocessed_text"
                     ].index[:step]
-                    # df_processed.loc[ids, "preprocessed_text"] = df_processed.loc[
-                    #     ids, "text"
-                    # ].apply(preprocessor_full.preprocess)
 
-                    # df_processed.loc[ids, "preprocessed_text"] = parallelize_function(
-                    #     preprocessor_full.preprocess,
-                    #     df_processed.loc[ids, "text"],
-                    #     workers=workers,
-                    #     prefer="threads",
-                    #     # batch_size=100,
-                    # )
-
-                    df_processed.loc[
-                        ids, "preprocessed_text"
-                    ] = parallelize_function_with_progress_bar(
-                        preprocessor_full.preprocess,
-                        df_processed.loc[ids, "text"],
-                        workers=workers,
+                    df_processed.loc[ids, "preprocessed_text"] = parallelize_function(
+                        func=preprocessor_full.preprocess,
+                        data=df_processed.loc[ids, "text"],
+                        workers=50,
                         prefer="threads",
+                        output="series",
+                        show_progress=True,
+                        desc=f"Preprocessing text chunk {i}",
+                        leave=False,
+                        position=1,
                     )
 
                     # Save
