@@ -7,7 +7,7 @@ logger_name: app-log
 
 # Preprocess Options
 use_dask: false  # Whether to use Dask for distributed computing. Set to 'true' if you have a Dask cluster.
-subsample: 300000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
+subsample: 1000 #300000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
 
 pipe:  # The steps to be taken in the pipeline. Order matters!
   - merge_data      # Merges data from different sources
@@ -27,7 +27,8 @@ lang:  # Languages to consider in 'lang_id' step. Can be multiple.
 # Modify these paths to fit your directory structure
 # This is the default configuration for docker image
 dir_data: /app/data  # Root data directory
-dir_text_processed: /app/data/metadata/df_normalized.parquet  # Path to output processed text metadata parquet file
+dir_text_processed: /app/data/processed  # Path to output processed text metadata parquet file
+dir_logical: /app/data/logical_dtsets
 dir_output_models: /app/data/models/  # Path to output topic models
 dir_mallet: /app/Mallet/bin/mallet # This path shouldn't be changed when using docker
 
@@ -48,4 +49,4 @@ use_ngrams: all  # Which ngrams to use
   # - proposed_ngrams
 
 # Number of topics for the topic model
-num_topics: 100
+num_topics: 10

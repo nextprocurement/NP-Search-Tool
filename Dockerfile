@@ -69,8 +69,10 @@ RUN pip install hdbscan
 RUN pip install torch
 
 # Install requirements
+RUN pip install wheel setuptools pip --upgrade
 RUN pip install -r requirements.txt
-RUN python -m pip install "dask[dataframe]" --upgrade
+RUN pip install "dask[complete]"
+#RUN python -m pip install "dask[dataframe]" --upgrade
 RUN python -m spacy download es_dep_news_trf
 RUN python -m spacy download es_core_news_lg
 
@@ -88,14 +90,16 @@ RUN mkdir models
 RUN wget https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz -O /app/models/lid.176.ftz
 
 # Copy the config/ directory
-COPY config/ config/
+#COPY config/ config/
 # Copy the src/ directory
-COPY src/ src/
+#COPY src/ src/
 # Copy all .py files
-COPY *.py .
+#COPY *.py ./
+COPY . .
+RUN python -c "import sys; print('\n'.join(sys.path))"
 
 # Set the entrypoint command
-# CMD ["python", "preprocess.py"]
+#CMD ["python", "preprocess.py"]
 CMD ["/bin/bash"]
 
 

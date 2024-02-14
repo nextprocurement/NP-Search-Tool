@@ -5,9 +5,13 @@ from subprocess import check_output
 from typing import List, Union
 
 import numpy as np
+from scipy import sparse
+from sklearn.preprocessing import normalize
 from tqdm import trange
 
 from .BaseModel import BaseModel
+from src.TopicModeling.tm_utils.tm_model import TMmodel
+from src.TopicModeling.tm_utils.utils import file_lines
 
 
 class MalletLDAModel(BaseModel):
@@ -56,11 +60,14 @@ class MalletLDAModel(BaseModel):
         # texts_txt_path = name.joinpath("corpus.txt")
         # texts_mallet_path = name.joinpath("corpus.mallet")
         if predict:
-            texts_txt_path = self._temp_mallet_dir.joinpath("corpus_predict.txt")
-            texts_mallet_path = self._temp_mallet_dir.joinpath("corpus_predict.mallet")
+            texts_txt_path = self._temp_mallet_dir.joinpath(
+                "corpus_predict.txt")
+            texts_mallet_path = self._temp_mallet_dir.joinpath(
+                "corpus_predict.mallet")
         else:
             texts_txt_path = self._temp_mallet_dir.joinpath("corpus_train.txt")
-            texts_mallet_path = self._temp_mallet_dir.joinpath("corpus_train.mallet")
+            texts_mallet_path = self._temp_mallet_dir.joinpath(
+                "corpus_train.mallet")
 
         # Create corpus.txt
         self.logger.info("Creating corpus.txt...")
@@ -88,7 +95,8 @@ class MalletLDAModel(BaseModel):
             name = self._infer_data_dir
         else:
             name = self._train_data_dir
-        texts_txt_path = shutil.copy(texts_txt_path, name.joinpath("corpus.txt"))
+        texts_txt_path = shutil.copy(
+            texts_txt_path, name.joinpath("corpus.txt"))
         texts_mallet_path = shutil.copy(
             texts_mallet_path, name.joinpath("corpus.mallet")
         )
@@ -170,7 +178,8 @@ class MalletLDAModel(BaseModel):
 
         cmd = f"{self._mallet_path} train-topics "
         with config_file.open("r") as f:
-            cmd += " ".join([f"--{l.strip()}" for l in f.readlines()]).replace("=", "")
+            cmd += " ".join([f"--{l.strip()}" for l in f.readlines()]
+                            ).replace("=", "")
         check_output(args=cmd, shell=True)
         self.logger.info("Finished training")
 
@@ -209,6 +218,9 @@ class MalletLDAModel(BaseModel):
             topic_keys = [t.strip().split("\t") for t in f.readlines()]
         topic_keys = {t[0]: t[-1] for t in topic_keys}
         # topic_keys = np.loadtxt(self._model_data_dir.joinpath('topic-keys.txt'), usecols=range(2, self.num_topics + 2))
+        
+        # Create TMmodel
+        self._createTMmodel()
 
         return pred, topic_keys
 
@@ -223,10 +235,12 @@ class MalletLDAModel(BaseModel):
 
         """
         # Define directories
-        predicted_doctopic = self._infer_data_dir.joinpath("predicted_topics.txt")
+        predicted_doctopic = self._infer_data_dir.joinpath(
+            "predicted_topics.txt")
         # Get inferencer
         if self._temp_mallet_dir.joinpath("inferencer.mallet").exists():
-            dir_inferencer = self._temp_mallet_dir.joinpath("inferencer.mallet")
+            dir_inferencer = self._temp_mallet_dir.joinpath(
+                "inferencer.mallet")
         elif self._model_data_dir.joinpath("inferencer.mallet").exists():
             dir_inferencer = self._model_data_dir.joinpath("inferencer.mallet")
         else:
@@ -234,7 +248,8 @@ class MalletLDAModel(BaseModel):
             return
 
         # Generate corpus.mallet
-        texts_mallet_infer_path = self._create_corpus_mallet(texts, predict=True)
+        texts_mallet_infer_path = self._create_corpus_mallet(
+            texts, predict=True)
 
         self.logger.info("Infer topics")
         # Infer topics
@@ -250,5 +265,59 @@ class MalletLDAModel(BaseModel):
             predicted_doctopic,
         )
 
-        pred = np.loadtxt(predicted_doctopic, usecols=range(2, self.num_topics + 2))
+        pred = np.loadtxt(predicted_doctopic,
+                          usecols=range(2, self.num_topics + 2))
         return pred
+
+    def _createTMmodel(self):
+
+        # Load thetas matrix for sparsification
+        thetas_file = self._model_data_dir.joinpath("doc-topics.txt")
+        cols = [k for k in np.arange(2, self.num_topics + 2)]
+        thetas32 = np.loadtxt(thetas_file, delimiter='\t',
+                              dtype=np.float32, usecols=cols)
+
+        # Create figure to check thresholding is correct
+        self._SaveThrFig(
+            thetas32, self._model_data_dir.joinpath('thetasDist.pdf'))
+
+        # Set to zeros all thetas below threshold, and renormalize
+        thetas32[thetas32 < self._thetas_thr] = 0
+        thetas32 = normalize(thetas32, axis=1, norm='l1')
+        thetas32 = sparse.csr_matrix(thetas32, copy=True)
+
+        # Recalculate topic weights to avoid errors due to sparsification
+        alphas = np.asarray(np.mean(thetas32, axis=0)).ravel()
+
+        # Create vocabulary files and calculate beta matrix
+        # A vocabulary is available with words provided by the Count Vectorizer object, but the new files need the order used by mallet
+        wtcFile = self._model_data_dir.joinpath('word-topic-counts.txt')
+        vocab_size = file_lines(wtcFile)
+        betas = np.zeros((self.num_topics, vocab_size))
+        vocab = []
+        term_freq = np.zeros((vocab_size,))
+        with wtcFile.open('r', encoding='utf8') as fin:
+            for i, line in enumerate(fin):
+                elements = line.split()
+                vocab.append(elements[1])
+                for counts in elements[2:]:
+                    tpc = int(counts.split(':')[0])
+                    cnt = int(counts.split(':')[1])
+                    betas[tpc, i] += cnt
+                    term_freq[i] += cnt
+        betas = normalize(betas, axis=1, norm='l1')
+
+        # Save vocabulary and frequencies
+        vocabfreq_file = self._model_data_dir.joinpath('vocab_freq.txt')
+        with vocabfreq_file.open('w', encoding='utf8') as fout:
+            [fout.write(el[0] + '\t' + str(int(el[1])) + '\n')
+             for el in zip(vocab, term_freq)]
+
+        tm = TMmodel(TMfolder=self._model_data_dir.joinpath('TMmodel'))
+        tm.create(betas=betas, thetas=thetas32, alphas=alphas,
+                  vocab=vocab)
+
+        # Remove doc-topics file
+        thetas_file.unlink()
+
+        return tm

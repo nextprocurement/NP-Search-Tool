@@ -1,4 +1,14 @@
+from src.utils import load_item_list, set_logger, train_test_split
+from src.TopicModeling import (
+    BERTopicModel,
+    GensimLDAModel,
+    MalletLDAModel,
+    NMFModel,
+    TomotopyCTModel,
+    TomotopyLDAModel,
+)
 import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -13,20 +23,12 @@ from hdbscan import HDBSCAN
 from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from tabulate import tabulate
+from src.TopicModeling.solr_backend_utils.utils import create_trainconfig
 from umap import UMAP
 
 from src.TopicModeling import BaseModel
 
 sys.path.append(str(Path(__file__).parents[1]))
-from src.TopicModeling import (
-    BERTopicModel,
-    GensimLDAModel,
-    MalletLDAModel,
-    NMFModel,
-    TomotopyCTModel,
-    TomotopyLDAModel,
-)
-from src.utils import load_item_list, set_logger, train_test_split
 
 if __name__ == "__main__":
     # Set logger
@@ -45,18 +47,24 @@ if __name__ == "__main__":
     #################################
 
     # Access options
+    merge_dfs = options.get("merge_dfs", ["minors", "insiders", "outsiders"])
+
     # Set logger
     dir_logger = Path(options.get("dir_logger", "app.log"))
     console_log = options.get("console_log", True)
     file_log = options.get("file_log", True)
-    logger = set_logger(console_log=console_log, file_log=file_log, file_loc=dir_logger)
+    logger = set_logger(console_log=console_log,
+                        file_log=file_log, file_loc=dir_logger)
 
     # Config
     num_topics = int(options.get("num_topics", 50))
     # Set default values if not provided in the YAML file
     dir_data = Path(options.get("dir_data", "data"))
     # Files directories
-    dir_text_processed = Path(options.get("dir_text_processed"))
+    dir_text_processed = Path(
+        options.get("dir_text_processed", "df_processed_pd.parquet")) / ("_".join(merge_dfs) + ".parquet")
+    dir_logical = Path(
+        options.get("dir_logical", "data/logical_dtsets")) / (dir_text_processed.stem + ".json")
     dir_output_models = Path(options.get("dir_output_models", "output_models"))
     dir_mallet = Path(options.get("dir_mallet"))
     # List loading options
@@ -64,7 +72,8 @@ if __name__ == "__main__":
 
     # Load data
     if use_stopwords:
-        stop_words = load_item_list(dir_data, "stopwords", use_item_list=use_stopwords)
+        stop_words = load_item_list(
+            dir_data, "stopwords", use_item_list=use_stopwords)
     else:
         stop_words = []
 
@@ -86,16 +95,17 @@ if __name__ == "__main__":
         df_sample = df_sample.sample(n=subsample, random_state=42)
     texts_train, texts_test = train_test_split(df_sample, 0.0)
     logger.info("Data loaded.")
-    logger.info(f"Train: {len(texts_train)} documents. Test: {len(texts_test)}.")
+    logger.info(
+        f"Train: {len(texts_train)} documents. Test: {len(texts_test)}.")
 
     # Compare
     models_names = [
         "Mallet",
-        "NMF",
-        "GensimLDA",
-        "TomotopyLDA",
-        "TomotopyCT",
-        "BERTopic",
+        #"NMF",
+        #"GensimLDA",
+        #"TomotopyLDA",
+        #"TomotopyCT",
+        #"BERTopic",
     ]
     # models_names = ["NMF"]
     models: List[BaseModel] = []
@@ -122,6 +132,17 @@ if __name__ == "__main__":
             )
             models.append(mallet_model)
 
+            # Define TMparam for trainconfig
+            # TODO: Add configuration of models to config file
+            TMparam = {
+                "ntopics": num_topics,
+                "alpha": 5,
+                "optimize_interval": 10,
+                "num_threads": 4,
+                "num_iterations": 1000
+            }
+            print(TMparam)
+
         # NMF
         elif m_name == "NMF":
             nmf_model = NMFModel(
@@ -133,6 +154,12 @@ if __name__ == "__main__":
             nmf_model.train(texts_train, num_topics=num_topics)
             models.append(nmf_model)
 
+            # Define TMparam for trainconfig
+            TMparam = {
+                "ntopics": num_topics,
+                "word_min_len": 4,
+            }
+
         # GensimLDA
         elif m_name == "GensimLDA":
             lda_gensim_model = GensimLDAModel(
@@ -141,8 +168,15 @@ if __name__ == "__main__":
                 word_min_len=4,
                 logger=logger,
             )
-            lda_gensim_model.train(texts_train, num_topics=num_topics, iterations=1000)
+            lda_gensim_model.train(
+                texts_train, num_topics=num_topics, iterations=1000)
             models.append(lda_gensim_model)
+
+            # Define TMparam for trainconfig
+            TMparam = {
+                "ntopics": num_topics,
+                "iterations": 1000,
+            }
 
         # TomotopyLDA
         elif m_name == "TomotopyLDA":
@@ -157,6 +191,12 @@ if __name__ == "__main__":
             )
             models.append(tomotopy_lda_model)
 
+            # Define TMparam for trainconfig
+            TMparam = {
+                "ntopics": num_topics,
+                "iterations": 1000,
+            }
+
         # TomotopyLDA
         elif m_name == "TomotopyCT":
             tomotopy_lda_model = TomotopyCTModel(
@@ -169,6 +209,12 @@ if __name__ == "__main__":
                 texts_train, num_topics=num_topics, iterations=1000
             )
             models.append(tomotopy_lda_model)
+
+            # Define TMparam for trainconfig
+            TMparam = {
+                "ntopics": num_topics,
+                "iterations": 1000,
+            }
 
         # BERTopic
         elif m_name == "BERTopic":
@@ -230,9 +276,47 @@ if __name__ == "__main__":
             )
             models.append(bertopic_model)
 
+            # Define TMparam for trainconfig
+            TMparam = {
+                "ntopics": num_topics,
+                "min_len": 4,
+                "transformer_model": "paraphrase-multilingual-MiniLM-L12-v2",
+                "umap_n_neighbors": 15,
+                "umap_n_components": 5,
+                "umap_min_dist": 0.0,
+                "umap_metric": "cosine",
+                "hdbscan_min_cluster_size": 500,
+                "hdbscan_min_samples": 2,
+                "hdbscan_metric": "euclidean",
+                "hdbscan_prediction_data": True,
+                "cv_token_pattern": word_pattern,
+                "cv_stop_words": stop_words,
+                "cv_max_df": 0.8,
+                "cv_min_df": 1,
+                "classFfidf_reduce_frequent_words": True,
+                "max_marginal_rel_diversity": 0.3,
+                "max_marginal_rel_top_n_words": 20
+            }
+
         else:
-            logger.warning(f"Model '{m_name}' not in available models. Skipping.")
+            logger.warning(
+                f"Model '{m_name}' not in available models. Skipping.")
             models_names.remove(m_name)
+
+        print("LOADING LOGICAL CORPUS")
+        with dir_logical.open("r", encoding="utf8") as fin:
+            logical_corpus = json.load(fin)
+
+        print(logical_corpus)
+        create_trainconfig(
+            modeldir=dir_output_models.joinpath(m_name).as_posix(),
+            model_name=f"{m_name}_{num_topics}",
+            model_desc=f"{m_name} model trained with {num_topics} on {dir_text_processed.stem}",
+            trainer=m_name,
+            TrDtSet=dir_text_processed.as_posix(),
+            Preproc=logical_corpus["Preproc"],
+            TMparam=TMparam
+        )
 
         t1 = time.time()
         print("-" * 100)
@@ -309,12 +393,14 @@ if __name__ == "__main__":
         times[f"pred_{models_names[n]}"] = t1 - t0
         # pred_topics[n].append(model.predict(texts_test))
 
-    logger.info(f"\n{tabulate(info, headers=info_headers, tablefmt='mixed_grid')}")
+    logger.info(
+        f"\n{tabulate(info, headers=info_headers, tablefmt='mixed_grid')}")
     logger.info(
         f"\n{tabulate(pred_topics, headers=pred_topics_headers, tablefmt='mixed_grid')}"
     )
     logger.info(
-        "Times:\n" + "\n".join(f"  {f'{k}:':<20}{v:>10.3f}" for k, v in times.items())
+        "Times:\n" +
+        "\n".join(f"  {f'{k}:':<20}{v:>10.3f}" for k, v in times.items())
     )
 
     logger.info(

@@ -16,6 +16,7 @@ import sklearn
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import trange
+import matplotlib.pyplot as plt
 
 from src.Preprocessor.NgramProcessor import PMI
 
@@ -54,6 +55,8 @@ class BaseModel:
         self.sentence_model = SentenceTransformer(
             "paraphrase-multilingual-MiniLM-L12-v2"
         )
+        self._thetas_thr = 3e-3
+        self._get_sims = False
 
         # Create sub-directories
         self._model_data_dir = self.model_dir.joinpath("model_data")
@@ -76,6 +79,42 @@ class BaseModel:
     @abstractmethod
     def _model_predict(self, texts: List[str]) -> np.ndarray:
         pass
+    
+    @abstractmethod
+    def _createTMmodel(self):
+        """Creates an object of class TMmodel hosting the topic model
+        that has been trained and whose output is available at the
+        provided folder
+
+        Returns
+        -------
+        tm: TMmodel
+            The topic model as an object of class TMmodel
+
+        """
+        pass
+    
+    def _SaveThrFig(self, thetas32, plotFile):
+        """Creates a figure to illustrate the effect of thresholding
+        The distribution of thetas is plotted, together with the value
+        that the trainer is programmed to use for the thresholding
+
+        Parameters
+        ----------
+        thetas32: 2d numpy array
+            the doc-topics matrix for a topic model
+        plotFile: Path
+            The name of the file where the plot will be saved
+        """
+        allvalues = np.sort(thetas32.flatten())
+        step = int(np.round(len(allvalues) / 1000))
+        plt.semilogx(allvalues[::step], (100 / len(allvalues))
+                     * np.arange(0, len(allvalues))[::step])
+        plt.semilogx([self._thetas_thr, self._thetas_thr], [0, 100], 'r')
+        plt.savefig(plotFile)
+        plt.close()
+
+        return
 
     def train(self, texts: List[str], **kwargs):
         probs, topic_keys = self._model_train(texts, **kwargs)

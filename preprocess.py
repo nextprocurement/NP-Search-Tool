@@ -10,7 +10,9 @@ from tqdm.auto import trange
 from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
+from src.TopicModeling.solr_backend_utils.utils import create_logical_corpus
 from src.utils import load_item_list, parallelize_function, set_logger
+from datetime import datetime
 
 
 def load_df(
@@ -75,12 +77,18 @@ if __name__ == "__main__":
     dir_data = Path(options.get("dir_data", "data"))
     # Files directories
     dir_text_processed = Path(
-        options.get("dir_text_processed", "df_processed_pd.parquet")
+        options.get("dir_text_processed", "df_processed_pd.parquet")) / ("_".join(merge_dfs) + ".parquet")
+
+    dir_logical = Path(
+        options.get("dir_logical", "data/logical_dtsets")
     )
     # List loading options
     use_vocabulary = options.get("use_vocabulary", False)
     use_stopwords = options.get("use_stopwords", False)
     use_ngrams = options.get("use_ngrams", False)
+    
+    # Initialize other variables
+    methods=[]
 
     #################################
 
@@ -184,13 +192,14 @@ if __name__ == "__main__":
 
         # Text normalization
         elif p == "normalization":
-            preprocessor_normalizer = TextPreprocessor(
-                methods=[
+            methods=[
                     {"method": "lowercase"},
                     {"method": "remove_urls"},
                     {"method": "clean_text", "args": {"min_len": 1}},
                     # {"method": "convert_ngrams"},
-                ],
+            ]
+            preprocessor_normalizer = TextPreprocessor(
+                methods=methods,
                 # ngrams=ngrams,
                 logger=logger,
             )
@@ -251,8 +260,7 @@ if __name__ == "__main__":
 
         # Full process text
         elif p == "preprocess":
-            preprocessor_full = TextPreprocessor(
-                methods=[
+            methods=[
                     {"method": "lowercase"},
                     {"method": "remove_urls"},
                     {"method": "lemmatize_text"},
@@ -261,7 +269,9 @@ if __name__ == "__main__":
                     {"method": "clean_text", "args": {"min_len": 2}},
                     {"method": "remove_stopwords"},
                     # {"method": "tokenize_text"},
-                ],
+            ]
+            preprocessor_full = TextPreprocessor(
+                methods=methods,
                 stopwords=stop_words,
                 vocabulary=vocabulary,
                 ngrams=ngrams,
@@ -336,5 +346,27 @@ if __name__ == "__main__":
             logger.warning(
                 f"Invalid element: {p} not in ['merge_data', 'lang_id', 'normalization', 'preprocess']"
             )
+            
+        # Define dictionary for saving Preprocessing information
+        Preproc = {
+            "subsample": subsample,
+            "pipe": pipe,
+            "methods_text_processor": methods,
+            "use_vocabulary": use_vocabulary,
+            "stopwords": use_stopwords,
+            "ngrams": use_ngrams
+        }
+        
+        # Create logical corpus for indexing at NP-Backend-Dockers        
+        create_logical_corpus(
+            path_datasets=dir_logical,
+            dtsName="_".join(merge_dfs),
+            dtsDesc=f"Logical corpus from {'_'.join(merge_dfs)} created on {datetime.now()}",
+            Dtset_loc=dir_text_processed,
+            Dtset_source="_".join(merge_dfs),
+            Dtset_idfld=df_processed.index.name,
+            Dtset_lemmas_fld="preprocessed_text",
+            Preproc=Preproc
+        )
 
         # logger.info("Finished")

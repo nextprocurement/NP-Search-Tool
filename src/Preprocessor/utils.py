@@ -1,10 +1,13 @@
+import ast
 import io
+import itertools
 import zipfile
 from collections import Counter
 from logging import Logger
 from pathlib import Path
 from typing import List, Union
 
+import numpy as np
 import pandas as pd
 import regex
 
@@ -27,10 +30,79 @@ def fill_na(cell, fill=[]):
     return cell
 
 
+def process_lote(el):
+    """ 
+    Convert string representation of a list into a list. Used to process the columns 'ProcurementProjectLot.ProcurementProject.Name' and 'ProcurementProjectLot.ID'.
+
+    Parameters
+    ----------
+    el : str
+        String representation of a list.
+
+    Returns
+    -------
+    el : list
+        List of elements.
+    """
+    if pd.notna(el):
+        try:
+            aux = ast.literal_eval(el[0])
+            if isinstance(aux, float):
+                aux = [int(aux)]
+            return aux
+        except (SyntaxError, ValueError):
+            return [el[0]]
+    else:
+        return el
+
+
+def melt_two_series(s1, s2):
+    """ 
+    Melt two series into a DataFrame, expanding rows to match elements in the series, 
+    effectively transforming a single row into multiple rows. This function is useful 
+    when dealing with columns containing lists, such as 'ProcurementProjectLot.ProcurementProject.Name' 
+    and 'ProcurementProjectLot.ID'. 
+
+    Parameters
+    ---------- 
+    s1 : pd.Series
+        First series to melt.
+    s2 : pd.Series)
+        Second series to melt.
+
+    Returns
+    -------
+    pd.DataFrame: A DataFrame with melted series, with each row containing metadata from the original DataFrame but for each element in the series.
+
+    Example
+    -------
+    >>> s1 = pd.Series([['A', 'B'], ['C'], ['D', 'E', 'F']])
+    >>> s2 = pd.Series([1, 2, 3])
+    >>> melt_two_series(s1, s2)
+      lot_name  lot_id
+    0        A       1
+    1        B       1
+    2        C       2
+    3        D       3
+    4        E       3
+    5        F       3
+    """
+    lengths_s1 = s1.str.len().values
+
+    flat_s1 = [i for i in itertools.chain.from_iterable(s1.values.tolist())]
+    flat_s2 = [i for i in itertools.chain.from_iterable(s2.values.tolist())]
+
+    idx_s1 = np.repeat(s1.index.values, lengths_s1)
+
+    return pd.DataFrame({'lot_name': flat_s1, 'lot_id': flat_s2}, index=idx_s1)
+
+
 def merge_data(
     dir_data: Union[str, Path],
     dir_text_metadata: Union[str, Path],
     merge_dfs: List[str] = ["minors", "insiders", "outsiders"],
+    use_lot_info: bool = True,
+    eliminate_duplicates: bool = True,
     logger: Logger = None,
 ):
     """
@@ -55,6 +127,7 @@ def merge_data(
                 else:
                     continue
     else:
+        # If it's a directory, create a Path and find the specific folder within it.
         for d in merge_dfs:
             file_path = dir_data.joinpath(f"metadata/{d}.parquet")
             if file_path.exists():
@@ -71,39 +144,106 @@ def merge_data(
     # Unify texts from all sources
     dfs_text = []
     for df in dfs:
-        # Reset index and rename to common identifier
+        # Reset index and rename to common identifier: new index is generated as the concatenation of 'zip', 'file name', 'entry'
         index_names = df.index.names
         orig_cols = df.columns
         df.reset_index(inplace=True)
         df["identifier"] = df[index_names].astype(str).agg("/".join, axis=1)
-        # df.drop(index_names, inplace=True, axis=1)
         df.set_index("identifier", inplace=True)
         df = df[orig_cols]
 
         # Select text columns and rename them
-        join_str = lambda x: ".".join([el for el in x if el])
+        def join_str(x): return ".".join([el for el in x if el])
         joint_cnames = {join_str(c): c for c in df.columns}
         reverse_joint_cnames = {v: k for k, v in joint_cnames.items()}
 
-        text_cols = sorted(
-            [v for k, v in joint_cnames.items() if "summary" in k or "title" in k]
-            # or "TenderResult.Description" in k
-            # or "TenderingProcess.TenderSubmissionDeadlinePeriod.Description" in k
+        if not use_lot_info:
+            # If we don't want to use lot info, we only need to select the text columns 'summary' and 'title'
+            text_cols = sorted(
+                [
+                    v for k, v in joint_cnames.items()
+                    if "summary" in k or "title" in k
+                ]
+            )
+
+            df_text = df.loc[:, text_cols]
+            use_cols = [
+                reverse_joint_cnames[c].split(".", 1)[-1]
+                for c in text_cols
+            ]
+            df_text.columns = use_cols
+
+            # Define columns that will be used as text
+            columns_for_text = ["title", "summary"]
+        else:
+            # If we want to use lot info, we need to select the text columns 'summary' and 'title' and the columns 'ProcurementProjectLot.ProcurementProject.Name' and 'ProcurementProjectLot.ID'
+            text_cols = sorted(
+                [
+                    v for k, v in joint_cnames.items()
+                    if "summary" in k
+                    or "title" in k
+                    or "ContractFolderStatus.ProcurementProjectLot.ProcurementProject.Name" in k
+                    or "ContractFolderStatus.ProcurementProjectLot.ID" in k
+                ]
+            )
+
+            df_text = df.loc[:, text_cols]
+            use_cols = [
+                reverse_joint_cnames[c].split(".", 1)[-1]
+                for c in text_cols
+            ]
+            print(use_cols)
+            df_text.columns = use_cols
+
+            if "ProcurementProjectLot.ID" in use_cols:
+
+                # Rename columns for better readability
+                rename_columns = {
+                    "ProcurementProjectLot.ID": "lot_id",
+                    "ProcurementProjectLot.ProcurementProject.Name": "lot_name",
+                }
+                df_text = df_text.rename(columns=rename_columns)
+                print(df_text.columns)
+
+                # Convert columns 'lot_name' and 'lot_id' to lists
+                df_text["lot_name"] = df_text["lot_name"].apply(process_lote)
+                df_text["lot_id"] = df_text["lot_id"].apply(process_lote)
+
+                # Melt the columns 'lot_name' and 'lot_id' into a single DataFrame
+                df_text = melt_two_series(df_text['lot_name'], df_text['lot_id']).join(
+                    df_text.drop(['lot_name', 'lot_id'], 1))
+
+                # Set index to 'identifier' lost during melt
+                df_text.index.names = ['identifier']
+
+                # Redefine identifier to include lot_id if it exists
+                orig_cols = ["title", "summary", "lot_name"]
+                df_text.reset_index(inplace=True)
+                df_text["identifier"] = df_text.apply(lambda row: '/'.join([str(row['identifier']), str(
+                    row['lot_id'])]) if row['lot_id'] != "nan" else row['identifier'], axis=1)
+                df_text.set_index("identifier", inplace=True)
+
+                # Define columns that will be used as text
+                columns_for_text = ["title", "summary", "lot_name"]
+            else:
+                df_text["lot_name"] = len(df_text) * np.nan
+
+        df_text["text"] = (
+            df_text[columns_for_text]
+            .applymap(fill_na, fill=None)
+            .agg(lambda x: ". ".join([str(el) for el in x if el]), axis=1)
         )
 
-        df_text = df.loc[:, text_cols]
-        use_cols = [reverse_joint_cnames[c].split(".", 1)[-1] for c in text_cols]
-        df_text.columns = use_cols
-        df_text["text"] = (
-            df_text[["title", "summary"]]
-            .applymap(fill_na, fill=None)
-            .agg(lambda x: ". ".join([el for el in x if el]), axis=1)
-        )
+        if eliminate_duplicates:
+            df_text = df_text.drop_duplicates(subset=['text'])
 
         dfs_text.append(df_text)
 
     # Concatenate and save as unique DataFrame
-    df_text = pd.concat(dfs_text)[["title", "summary", "text"]]
+    df_text = pd.concat(dfs_text)[["title", "summary", "lot_name", "text"]]
+    mask = df_text['lot_name'].apply(lambda x: isinstance(x, int))
+    df_text.loc[mask, 'lot_name'] = df_text.loc[mask, 'lot_name'].astype(str)
+    dir_text_metadata.parent.mkdir(parents=True, exist_ok=True)
     df_text.to_parquet(dir_text_metadata, engine="pyarrow")
 
 

@@ -9,9 +9,13 @@ gph/
 models/
 Mallet/
 report/
+sample_data
 __pycache__
 
 # ignore other files
 *.css
 *.html
 _test*
+
+# environment files
+.env
