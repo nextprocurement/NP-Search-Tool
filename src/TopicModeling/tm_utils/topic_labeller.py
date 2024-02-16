@@ -28,7 +28,7 @@ class TopicLabeller(object):
         self.parameters = {
             "model": model,
             "messages": [
-                {"role": "system", "content": f"You are a helpful assistant trained on the task of labelling chemical descriptions of the topics of a certain topic model. For example, if I give you the chemical description {example_1[0]}, you will give me the label {example_1[1]}. Just answer with the label, no need to write anything else."
+                {"role": "system", "content": f"You are a helpful assistant trained on the task of labelling chemical descriptions of the topics of a certain topic model. For example, if I give you the chemical description {example_1[0]}, you will give me the label {example_1[1]}. Just answer with the label, no need to write anything else. Generate the label in the same language as the chemical description."
                  },
             ],
             "temperature": temperature,

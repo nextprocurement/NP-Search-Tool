@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from tqdm import trange
 from umap import UMAP
-
+import shutil
 from .BaseModel import BaseModel
 
 
@@ -24,9 +24,21 @@ class BERTopicModel(BaseModel):
         ctfidf_model: Union[ClassTfidfTransformer, None] = None,
         representation_model: Union[MaximalMarginalRelevance, None] = None,
         verbose=True,
+        texts_test=None,
     ):
         # Set num topics
         self.num_topics = num_topics
+        
+        # Save test data if available
+        if texts_test is not None:
+            texts_test_path = self._temp_mallet_dir.joinpath("corpus_test.txt")
+            self.logger.info("Creating Test corpus.txt...")
+            with texts_test_path.open("w", encoding="utf8") as fout:
+                for i, t in enumerate(texts_test):
+                    fout.write(f"{i} 0 {t}\n")
+            self.logger.info(f"Test corpus.txt created")
+            texts_test_path = shutil.copy(
+                texts_test_path, self._test_data_dir.joinpath("corpus.txt"))
 
         # Step 1 - Extract embeddings
         if embedding_model:

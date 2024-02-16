@@ -382,6 +382,7 @@ class TMmodel(object):
 
         # Get texts to calculate coherence
         if self._TMfolder.parent.parent.joinpath('test_data/corpus.txt').is_file():
+            self._logger.info("--- Calculating coherence with test data.")
             corpusFile = self._TMfolder.parent.parent.joinpath(
                 'test_data/corpus.txt')
         else:
@@ -489,7 +490,7 @@ class TMmodel(object):
 
         return self._alphas, self._betas, self._thetas, self._vocab, self._sims, self._coords
 
-    def get_tpc_word_descriptions(self, n_words=15, tfidf=True, tpc=None):
+    def get_tpc_word_descriptions(self, n_words=100, tfidf=True, tpc=None):
         """returns the chemical description of topics
 
         Parameters

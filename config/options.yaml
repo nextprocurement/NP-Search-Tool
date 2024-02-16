@@ -7,7 +7,7 @@ logger_name: app-log
 
 # Preprocess Options
 use_dask: false  # Whether to use Dask for distributed computing. Set to 'true' if you have a Dask cluster.
-subsample: 1000 #300000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
+#subsample: 1000 #300000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
 
 pipe:  # The steps to be taken in the pipeline. Order matters!
   - merge_data      # Merges data from different sources
@@ -48,5 +48,11 @@ use_ngrams: all  # Which ngrams to use
   # - ngrams
   # - proposed_ngrams
 
-# Number of topics for the topic model
-num_topics: 10
+training_params:
+  num_topics: 5,10 # Number of training topics
+  word_min_length: 3  # Minimum length of words to consider
+  Mallet_params:  # Parameters for the Mallet LDA model
+    alpha: 5  
+    optimize_interval: 10
+    num_threads: 4  
+    num_iterations: 1000  

@@ -46,12 +46,16 @@ class MalletLDAModel(BaseModel):
         self._mallet_path = Path(mallet_path)
 
         # Create temp dir for model data (improves speed)
-        self._temp_mallet_dir = self._temp_dir.joinpath("mallet")
+        self._temp_mallet_dir = self._temp_dir.joinpath(model_dir.stem)
         self._temp_mallet_dir.mkdir(parents=True, exist_ok=True)
 
         return
 
-    def _create_corpus_mallet(self, texts: List[str], predict: bool = False):
+    def _create_corpus_mallet(
+        self,
+        texts: List[str],
+        predict: bool = False
+    ):
         """
         Generate .txt and .mallet files to train LDA model.
         Returns path to generated .mallet file.
@@ -115,6 +119,7 @@ class MalletLDAModel(BaseModel):
         num_threads: int = 4,
         num_iterations: int = 1000,
         doc_topic_thr: float = 0.0,
+        texts_test: List[str] = None
     ):
         """
         Train LDA model
@@ -144,6 +149,17 @@ class MalletLDAModel(BaseModel):
 
         # Generate corpus.mallet
         texts_mallet_path = self._create_corpus_mallet(texts, predict=False)
+
+        # Save test data if available
+        if texts_test is not None:
+            texts_test_path = self._temp_mallet_dir.joinpath("corpus_test.txt")
+            self.logger.info("Creating Test corpus.txt...")
+            with texts_test_path.open("w", encoding="utf8") as fout:
+                for i, t in enumerate(texts_test):
+                    fout.write(f"{i} 0 {t}\n")
+            self.logger.info(f"Test corpus.txt created")
+            texts_test_path = shutil.copy(
+                texts_test_path, self._test_data_dir.joinpath("corpus.txt"))
 
         # Generate train config
         with config_file.open("w", encoding="utf8") as fout:
@@ -180,6 +196,7 @@ class MalletLDAModel(BaseModel):
         with config_file.open("r") as f:
             cmd += " ".join([f"--{l.strip()}" for l in f.readlines()]
                             ).replace("=", "")
+
         check_output(args=cmd, shell=True)
         self.logger.info("Finished training")
 
@@ -218,7 +235,7 @@ class MalletLDAModel(BaseModel):
             topic_keys = [t.strip().split("\t") for t in f.readlines()]
         topic_keys = {t[0]: t[-1] for t in topic_keys}
         # topic_keys = np.loadtxt(self._model_data_dir.joinpath('topic-keys.txt'), usecols=range(2, self.num_topics + 2))
-        
+
         # Create TMmodel
         self._createTMmodel()
 

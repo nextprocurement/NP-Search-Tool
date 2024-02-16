@@ -65,11 +65,16 @@ class BaseModel:
         self._train_data_dir.mkdir(parents=True, exist_ok=True)
         self._infer_data_dir = self.model_dir.joinpath("infer_data")
         self._infer_data_dir.mkdir(parents=True, exist_ok=True)
+        self._test_data_dir = self.model_dir.joinpath("test_data")
+        self._test_data_dir.mkdir(parents=True, exist_ok=True)
         self._temp_dir = Path(tempfile.gettempdir())
 
     @abstractmethod
     def _model_train(
-        self, texts: List[str], num_topics: int, **kwargs
+        self,
+        texts: List[str],
+        num_topics: int,
+        **kwargs
     ) -> Tuple[np.ndarray, Dict[int, str]]:
         """
         Gets the doc-topics and topic-keys

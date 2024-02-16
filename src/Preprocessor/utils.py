@@ -174,7 +174,7 @@ def merge_data(
             df_text.columns = use_cols
 
             # Define columns that will be used as text
-            columns_for_text = ["title", "summary"]
+            columns_for_text = ["id", "title", "summary"]
         else:
             # If we want to use lot info, we need to select the text columns 'summary' and 'title' and the columns 'ProcurementProjectLot.ProcurementProject.Name' and 'ProcurementProjectLot.ID'
             text_cols = sorted(
@@ -182,6 +182,7 @@ def merge_data(
                     v for k, v in joint_cnames.items()
                     if "summary" in k
                     or "title" in k
+                    or "id" in k
                     or "ContractFolderStatus.ProcurementProjectLot.ProcurementProject.Name" in k
                     or "ContractFolderStatus.ProcurementProjectLot.ID" in k
                 ]
@@ -224,7 +225,7 @@ def merge_data(
                 df_text.set_index("identifier", inplace=True)
 
                 # Define columns that will be used as text
-                columns_for_text = ["title", "summary", "lot_name"]
+                columns_for_text = ["id", "title", "summary", "lot_name"]
             else:
                 df_text["lot_name"] = len(df_text) * np.nan
 
