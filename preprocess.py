@@ -6,12 +6,13 @@ import dask.dataframe as dd
 import pandas as pd
 import yaml
 from tqdm.auto import trange
+from src.Embeddings.embedder import Embedder
 
 from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
 from src.TopicModeling.solr_backend_utils.utils import create_logical_corpus
-from src.utils import load_item_list, parallelize_function, set_logger
+from src.utils import load_equivalences, load_item_list, parallelize_function, set_logger
 from datetime import datetime
 
 
@@ -85,6 +86,7 @@ if __name__ == "__main__":
     # List loading options
     use_vocabulary = options.get("use_vocabulary", False)
     use_stopwords = options.get("use_stopwords", False)
+    use_equivalences = options.get("use_equivalences", False)
     use_ngrams = options.get("use_ngrams", False)
     
     # Initialize other variables
@@ -108,6 +110,12 @@ if __name__ == "__main__":
         stop_words = load_item_list(dir_data, "stopwords", use_item_list=use_stopwords)
     else:
         stop_words = []
+    if use_equivalences:
+        equivalences = load_equivalences(
+            dir_data, use_item_list=use_equivalences
+        )
+    else:
+        equivalences = {}
     if use_ngrams:
         # ngrams = load_item_list(Path(dir_ngrams), use_item_list=use_ngrams)
         ngrams = load_item_list(dir_data, "ngrams", use_item_list=use_ngrams)
@@ -116,6 +124,7 @@ if __name__ == "__main__":
 
     logger.info(f"Loaded vocabulary: {len(vocabulary)} terms.")
     logger.info(f"Loaded stopwords: {len(stop_words)} terms.")
+    logger.info(f"Loaded equivalences: {len(equivalences)} terms.")
     logger.info(f"Loaded ngrams: {len(ngrams)} terms.")
 
     # Load data
@@ -189,6 +198,13 @@ if __name__ == "__main__":
             # load info if it's not the last processing step
             if not proc == n_proc:
                 df_processed, df_processed_ids = load_df(dir_text_processed, lang=lang)
+        
+        # Embeddings calculation 
+        elif p == "embeddings":
+            embedder = Embedder()
+            df_processed = embedder.bert_embeddings_from_df(df_processed, ["text"], "all-mpnet-base-v2")
+            save_df(df_processed, dir_text_processed)
+            logger.info("Embeddings calculated.")
 
         # Text normalization
         elif p == "normalization":
@@ -268,11 +284,13 @@ if __name__ == "__main__":
                     {"method": "convert_ngrams"},
                     {"method": "clean_text", "args": {"min_len": 2}},
                     {"method": "remove_stopwords"},
+                    {"method": "remove_equivalences"},
                     # {"method": "tokenize_text"},
             ]
             preprocessor_full = TextPreprocessor(
                 methods=methods,
                 stopwords=stop_words,
+                equivalences=equivalences,
                 vocabulary=vocabulary,
                 ngrams=ngrams,
                 logger=logger,

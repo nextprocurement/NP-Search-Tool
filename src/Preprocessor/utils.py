@@ -174,7 +174,7 @@ def merge_data(
             df_text.columns = use_cols
 
             # Define columns that will be used as text
-            columns_for_text = ["id", "title", "summary"]
+            columns_for_text = ["title", "summary"]#"id", 
         else:
             # If we want to use lot info, we need to select the text columns 'summary' and 'title' and the columns 'ProcurementProjectLot.ProcurementProject.Name' and 'ProcurementProjectLot.ID'
             text_cols = sorted(
@@ -212,7 +212,7 @@ def merge_data(
 
                 # Melt the columns 'lot_name' and 'lot_id' into a single DataFrame
                 df_text = melt_two_series(df_text['lot_name'], df_text['lot_id']).join(
-                    df_text.drop(['lot_name', 'lot_id'], 1))
+                    df_text.drop(['lot_name', 'lot_id'], axis=1))
 
                 # Set index to 'identifier' lost during melt
                 df_text.index.names = ['identifier']
@@ -225,7 +225,7 @@ def merge_data(
                 df_text.set_index("identifier", inplace=True)
 
                 # Define columns that will be used as text
-                columns_for_text = ["id", "title", "summary", "lot_name"]
+                columns_for_text = ["title", "summary", "lot_name"]#"id"
             else:
                 df_text["lot_name"] = len(df_text) * np.nan
 

@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sparse
 from sparse_dot_topn import awesome_cossim_topn
+from src.Embeddings.embedder import Embedder
 from .topic_labeller import TopicLabeller
 
 
@@ -142,6 +143,7 @@ class TMmodel(object):
                                   for el in self.get_tpc_word_descriptions()]
         self.calculate_topic_coherence()  # cohrs_aux
         self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
+        self._tpc_embeddings = self.get_tpc_word_descriptions_embeddings()
         self._calculate_sims()
 
         # We are ready to save all variables in the model
@@ -178,6 +180,8 @@ class TMmodel(object):
             fout.write('\n'.join(self._tpc_descriptions))
         with self._TMfolder.joinpath('tpc_labels.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._tpc_labels))
+        np.save(self._TMfolder.joinpath('tpc_embeddings.npy'), np.array(
+            self._tpc_embeddings, dtype=object), allow_pickle=True)
 
         # Generate also pyLDAvisualization
         # pyLDAvis currently raises some Deprecation warnings
@@ -213,7 +217,7 @@ class TMmodel(object):
         with self._TMfolder.joinpath("pyLDAvis.html").open("w") as f:
             pyLDAvis.save_html(vis_data, f)
         # TODO: Check substituting by "pyLDAvis.prepared_data_to_html"
-        #self._modify_pyldavis_html(self._TMfolder.as_posix())
+        # self._modify_pyldavis_html(self._TMfolder.as_posix())
 
         # Get coordinates of topics in the pyLDAvis visualization
         vis_data_dict = vis_data.to_dict()
@@ -529,6 +533,7 @@ class TMmodel(object):
                 words = [self._vocab[idx2]
                          for idx2 in np.argsort(self._betas[i])[::-1][0:n_words]]
             tpc_descs.append((i, ', '.join(words)))
+
         return tpc_descs
 
     def load_tpc_descriptions(self):
@@ -557,18 +562,60 @@ class TMmodel(object):
 
         # Create a topic labeller object
         tl = TopicLabeller(model="gpt-4")
-        
+
         # Get labels
         aux = [string.replace("'", '"') for string in self._tpc_descriptions]
         labels = tl.get_labels(aux)
         labels_format = [(i, p) for i, p in enumerate(labels)]
-        
+
         return labels_format
 
     def load_tpc_labels(self):
         if self._tpc_labels is None:
             with self._TMfolder.joinpath('tpc_labels.txt').open('r', encoding='utf8') as fin:
                 self._tpc_labels = [el.strip() for el in fin.readlines()]
+
+    def get_tpc_word_descriptions_embeddings(self):
+
+        # Load topc descriptions
+        self.load_tpc_descriptions()
+
+        # Create embedder
+        emb = Embedder()  # TODO configure parameters
+
+        embed_from = [
+            el.split(", ") for el in self._tpc_descriptions
+        ]
+
+        corpus_path = self._TMfolder.parent.parent.joinpath(
+            'train_data/corpus.txt')
+        model_path = corpus_path.parent / f"model_w2v_{corpus_path.stem}.model"
+
+        if model_path.exists():
+            tpc_embeddings = emb.infer_embeddings(
+                embed_from=embed_from,
+                method="word2vec",
+                do_train_w2vec=False,
+                model_path=model_path,
+                corpus_file=self._TMfolder.parent.parent.joinpath(
+                    'train_data/corpus.txt')
+            )
+        else:
+            tpc_embeddings = emb.infer_embeddings(
+                embed_from=embed_from,
+                method="word2vec",
+                do_train_w2vec=True,
+                corpus_file=self._TMfolder.parent.parent.joinpath(
+                    'train_data/corpus.txt')
+            )
+
+        return tpc_embeddings
+
+    def load_tpc_word_descriptions_embeddings(self):
+
+        if self._tpc_embeddings is None:
+            self._tpc_embeddings = np.load(self._TMfolder.joinpath(
+                'tpc_embeddings.npy'), allow_pickle=True)
 
     def load_tpc_coords(self):
         if self._coords is None:

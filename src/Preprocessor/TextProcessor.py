@@ -19,6 +19,7 @@ class TextPreprocessor:
         self,
         methods: List[str] = [],
         stopwords: List[str] = [],
+        equivalences: List[str] = [],
         vocabulary: dict = {},
         ngrams: List[str] = [],
         logger: logging.Logger = None,
@@ -64,6 +65,7 @@ class TextPreprocessor:
             "remove_stopwords": self.remove_stopwords,
             "correct_spelling": self.correct_spelling,
             "tokenize_text": self.tokenize_text,
+            "remove_equivalences": self.translate_equivalences,
         }
 
         self.method_times = dict()
@@ -85,11 +87,13 @@ class TextPreprocessor:
                     }
                 )
             else:
-                logger.warning(f"Method '{el.get('method')}' not in available methods.")
+                logger.warning(
+                    f"Method '{el.get('method')}' not in available methods.")
 
         # Kwargs
         self.stemmer = SnowballStemmer("spanish")
-        self.spellchecker = enchant.Dict("es_ES")  # Initialize the spellchecker
+        self.spellchecker = enchant.Dict(
+            "es_ES")  # Initialize the spellchecker
         # self.spellchecker = SpellChecker(language="es", distance=1)
         # self.spell = Speller(lang="es", fast=False)
 
@@ -100,7 +104,8 @@ class TextPreprocessor:
             self.lemmatizer = Lemmatizer(vocabulary)
             self.nlp = spacy.load(
                 "es_dep_news_trf",
-                disable=["tok2vec", "parser", "attribute_ruler", "lemmatizer", "ner"],
+                disable=["tok2vec", "parser",
+                         "attribute_ruler", "lemmatizer", "ner"],
             )  # es_core_news_lg | es_dep_news_trf
         else:
             self.logger.info("Using predefined lemmatizer.")
@@ -133,15 +138,21 @@ class TextPreprocessor:
                 )
                 + r")(?![a-zA-Z\u00C0-\u024F\d\-\_\·\.\'])"
             )
-            self._stopwords_regex_uncased = regex.compile(pattern, regex.IGNORECASE)
+            self._stopwords_regex_uncased = regex.compile(
+                pattern, regex.IGNORECASE)
         else:
             self.logger.info("No stopwords")
         # Ngrams
         if ngrams:
-            self.ngrams = {tuple(el.split()): el.replace(" ", "-") for el in ngrams}
+            self.ngrams = {tuple(el.split()): el.replace(" ", "-")
+                           for el in ngrams}
             self._ngram_size = max([len(k) for k in self.ngrams.keys()])
         else:
             self.logger.info("No ngrams")
+
+        # Equivalences
+        if equivalences:
+            self._equivalents = equivalences
 
     def __repr__(self):
         return (
@@ -180,7 +191,8 @@ class TextPreprocessor:
         if hasattr(self, "lemmatizer"):
             # lemmatized_words = [self.lemmatizer.lemmatize_spanish(w) for w in doc]
             lemmatized_words = (
-                pd.Series(doc).apply(self.lemmatizer.lemmatize_spanish).tolist()
+                pd.Series(doc).apply(
+                    self.lemmatizer.lemmatize_spanish).tolist()
             )
         else:
             lemmatized_words = [token.lemma_ for token in doc]
@@ -286,7 +298,8 @@ class TextPreprocessor:
                     el for el in text if el.lower() not in self._stw_uncased
                 ]
             else:
-                filtered_text = [el for el in text if el not in self._stw_cased]
+                filtered_text = [
+                    el for el in text if el not in self._stw_cased]
             filtered_text = " ".join(filtered_text)
         return filtered_text
 
@@ -309,10 +322,22 @@ class TextPreprocessor:
                     corrected_words.append(word)
         return " ".join(corrected_words)
 
+    def translate_equivalences(
+        self,
+        text: Union[List[str], str],
+    ) -> str:
+
+        cleantext = " ".join([self._equivalents[el] if el in self._equivalents else el for el in text.split()])
+        
+        # remove stopwords again, in case equivalences introduced new stopwords
+        cleantext = self.remove_stopwords(cleantext)
+
+        return cleantext
+
     def preprocess(self, text: str, rtype: str = "string") -> str:
         for method_info in self.methods:
             method = method_info.get("method")
             args = method_info.get("args", {})
             text = method(text, **args)
-
+        
         return text if rtype == "string" else text.split()

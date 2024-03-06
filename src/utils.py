@@ -174,6 +174,40 @@ def load_item_list(
     return item_list
 
 
+def load_equivalences(
+    dir_data: Union[str, Path],
+    use_item_list: Union[str, List[str]] = "all"
+):  
+    
+    equivalent = {}
+    if not use_item_list:
+        return equivalent
+    if isinstance(use_item_list, str):
+        use_item_list = [use_item_list]
+
+    main_path = Path(dir_data)
+    
+    # Find the 'equivalences' folder and list all txt files in it
+    specific_folder = main_path / 'equivalences'
+    
+    if not specific_folder.exists():
+        return equivalent
+    if "all" in use_item_list:
+        use_item_list = [
+            el.stem
+            for el in specific_folder.iterdir()
+            if el.is_file()
+        ]
+    for el in use_item_list:
+        if specific_folder.joinpath(f"{el}.txt").is_file():
+            with specific_folder.joinpath(f"{el}.txt").open(encoding="utf-8") as f:
+                newEq = [x.split(':') for x in f.readlines()]
+                newEq = [x for x in newEq if len(x) == 2]
+                newEq = dict(newEq)
+                equivalent = {**equivalent, **newEq}
+
+    return equivalent
+
 def train_test_split(df: Series, frac=0.2):
     """
     Split a pd.Series into train and test samples.
