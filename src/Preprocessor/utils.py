@@ -130,6 +130,7 @@ def merge_data(
         # If it's a directory, create a Path and find the specific folder within it.
         for d in merge_dfs:
             file_path = dir_data.joinpath(f"metadata/{d}.parquet")
+            logger.warning(f"File {file_path.as_posix()} does not exist, skipping.")
             if file_path.exists():
                 dfs.append(pd.read_parquet(file_path))
             elif logger:
@@ -240,11 +241,13 @@ def merge_data(
 
         dfs_text.append(df_text)
 
-    # Concatenate and save as unique DataFrame
+    # Concatenate and save as unique DataFrame-
     df_text = pd.concat(dfs_text)[["title", "summary", "lot_name", "text"]]
     mask = df_text['lot_name'].apply(lambda x: isinstance(x, int))
     df_text.loc[mask, 'lot_name'] = df_text.loc[mask, 'lot_name'].astype(str)
     dir_text_metadata.parent.mkdir(parents=True, exist_ok=True)
+    df_text["id_tm"] = np.arange(len(df_text))
+    df_text = df_text[["id_tm", "title", "summary", "lot_name", "text"]]
     df_text.to_parquet(dir_text_metadata, engine="pyarrow")
 
 

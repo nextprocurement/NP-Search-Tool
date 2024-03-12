@@ -494,7 +494,7 @@ class TMmodel(object):
 
         return self._alphas, self._betas, self._thetas, self._vocab, self._sims, self._coords
 
-    def get_tpc_word_descriptions(self, n_words=100, tfidf=True, tpc=None):
+    def get_tpc_word_descriptions(self, n_words=15, tfidf=True, tpc=None):
         """returns the chemical description of topics
 
         Parameters

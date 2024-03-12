@@ -7,7 +7,7 @@ logger_name: app-log
 
 # Preprocess Options
 use_dask: false  # Whether to use Dask for distributed computing. Set to 'true' if you have a Dask cluster.
-subsample: 100 #300000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
+subsample: 10000 #300000  # The number of random samples to take from the dataset. If you want to use all data, you can comment out this line.
 
 pipe:  # The steps to be taken in the pipeline. Order matters!
   - merge_data      # Merges data from different sources
