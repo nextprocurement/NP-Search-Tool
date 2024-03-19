@@ -1,3 +1,4 @@
+from src.TopicModeling.solr_backend_utils.utils import create_trainconfig
 from src.utils import load_item_list, set_logger, train_test_split
 import argparse
 import yaml
@@ -161,13 +162,26 @@ if __name__ == "__main__":
         models_train.append(model_init_params["model_dir"])
         model = create_model(args.trainer, **model_init_params)
 
+        # Train model
         model.train(
             texts_train,
             num_topics=k,
             **tr_params,
             texts_test=texts_test,
         )
-    
-    # Generate graph of coherence scores
-    
+        
+        # Saave model
+        model.save_model(
+            path=model_init_params["model_dir"].joinpath("model.pickle")
+        )
+        
+        # Create trainconfig
+        create_trainconfig(
+            modeldir=model_init_params["model_dir"],
+            model_name=f"{args.trainer}_{k}_topics",
+            model_desc=f"{args.trainer}_{k}_topics model trained with {num_topics} on {dir_text_processed.stem}",
+            trainer=args.trainer,
+            TrDtSet=dir_text_processed.as_posix(),
+            TMparam=tr_params
+        )    
         

@@ -19,3 +19,4 @@ _test*
 
 # environment files
 .env
+*.DS_Store
