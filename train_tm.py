@@ -119,10 +119,7 @@ if __name__ == "__main__":
 
     subsample = int(options.get("subsample", 0))
     df_processed = pd.read_parquet(dir_text_processed).dropna()
-    df_sample = df_processed.loc[
-        df_processed["preprocessed_text"].apply(lambda x: len(x.split()) > 5),
-        "preprocessed_text",
-    ]
+    df_sample = df_processed.loc[df_processed["preprocessed_text"].apply(lambda x: len(x.split()) > 5), ["preprocessed_text", "id_tm"]]
     if subsample:
         if subsample > len(df_sample):
             logger.warning(
@@ -164,22 +161,25 @@ if __name__ == "__main__":
 
         # Train model
         model.train(
-            texts_train,
+            texts_train.preprocessed_text,
+            texts_train.id_tm,
             num_topics=k,
             **tr_params,
-            texts_test=texts_test,
+            texts_test=texts_test.preprocessed_text,
+            ids_test=texts_test.id_tm
+            
         )
         
         # Saave model
         model.save_model(
-            path=model_init_params["model_dir"].joinpath("model.pickle")
+            path=model_init_params["model_dir"] / "model_data" / "model.pickle"
         )
         
         # Create trainconfig
         create_trainconfig(
             modeldir=model_init_params["model_dir"],
             model_name=f"{args.trainer}_{k}_topics",
-            model_desc=f"{args.trainer}_{k}_topics model trained with {num_topics} on {dir_text_processed.stem}",
+            model_desc=f"{args.trainer}_{k}_topics model trained with {k} on {dir_text_processed.stem}",
             trainer=args.trainer,
             TrDtSet=dir_text_processed.as_posix(),
             TMparam=tr_params

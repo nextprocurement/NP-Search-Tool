@@ -54,6 +54,7 @@ class MalletLDAModel(BaseModel):
     def _create_corpus_mallet(
         self,
         texts: List[str],
+        ids: List[int],
         predict: bool = False
     ):
         """
@@ -76,7 +77,7 @@ class MalletLDAModel(BaseModel):
         # Create corpus.txt
         self.logger.info("Creating corpus.txt...")
         with texts_txt_path.open("w", encoding="utf8") as fout:
-            for i, t in enumerate(texts):
+            for i, t in zip(ids, texts):
                 fout.write(f"{i} 0 {t}\n")
         self.logger.info(f"corpus.txt created")
 
@@ -113,13 +114,15 @@ class MalletLDAModel(BaseModel):
     def _model_train(
         self,
         texts: List[str],
+        ids: List[int],
         num_topics: int,
         alpha: float = 5.0,
         optimize_interval: int = 10,
         num_threads: int = 4,
         num_iterations: int = 1000,
         doc_topic_thr: float = 0.0,
-        texts_test: List[str] = None
+        texts_test: List[str] = None,
+        ids_test: List[int] = None
     ):
         """
         Train LDA model
@@ -148,14 +151,14 @@ class MalletLDAModel(BaseModel):
         config_file = self._train_data_dir.joinpath("train.config")
 
         # Generate corpus.mallet
-        texts_mallet_path = self._create_corpus_mallet(texts, predict=False)
+        texts_mallet_path = self._create_corpus_mallet(texts, ids, predict=False)
 
         # Save test data if available
         if texts_test is not None:
             texts_test_path = self._temp_mallet_dir.joinpath("corpus_test.txt")
             self.logger.info("Creating Test corpus.txt...")
             with texts_test_path.open("w", encoding="utf8") as fout:
-                for i, t in enumerate(texts_test):
+                for i, t in zip(ids_test,texts_test):
                     fout.write(f"{i} 0 {t}\n")
             self.logger.info(f"Test corpus.txt created")
             texts_test_path = shutil.copy(
@@ -295,8 +298,8 @@ class MalletLDAModel(BaseModel):
                               dtype=np.float32, usecols=cols)
 
         # Create figure to check thresholding is correct
-        self._SaveThrFig(
-            thetas32, self._model_data_dir.joinpath('thetasDist.pdf'))
+        #self._SaveThrFig(
+        #    thetas32, self._model_data_dir.joinpath('thetasDist.pdf'))
 
         # Set to zeros all thetas below threshold, and renormalize
         thetas32[thetas32 < self._thetas_thr] = 0

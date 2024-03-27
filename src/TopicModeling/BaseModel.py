@@ -121,10 +121,10 @@ class BaseModel:
 
         return
 
-    def train(self, texts: List[str], **kwargs):
-        probs, topic_keys = self._model_train(texts, **kwargs)
+    def train(self, texts: List[str], ids: List[int], **kwargs):
+        probs, topic_keys = self._model_train(texts, ids, **kwargs)
         # Save train data
-        self._save_train_texts(texts)
+        self._save_train_texts(texts, ids)
         self._save_train_doctopics(probs)
         self._save_topickeys(topic_keys)
 
@@ -145,9 +145,9 @@ class BaseModel:
     ###
     # Save methods
     ###
-    def _save_train_texts(self, texts: List[str], sep="\t"):
+    def _save_train_texts(self, texts: List[str], ids: List[int], sep="\t"):
         with self._temp_dir.joinpath("corpus.txt").open("w", encoding="utf8") as f:
-            f.writelines([f"{n}{sep}0{sep}{t}\n" for n, t in enumerate(texts)])
+            f.writelines([f"{n}{sep}0{sep}{t}\n" for n, t in zip(ids, texts)])
         shutil.copy(
             self._temp_dir.joinpath("corpus.txt"),
             self._train_data_dir.joinpath("corpus.txt"),
