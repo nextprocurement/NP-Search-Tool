@@ -63,7 +63,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--test_split",
-        default=0.3,
+        default=0.1,
         type=float,
         help="Size of test split for training the model. If set to 0.0, the model will be trained on the entire dataset and no test set will be created."
     )

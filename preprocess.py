@@ -202,7 +202,7 @@ if __name__ == "__main__":
         # Embeddings calculation 
         elif p == "embeddings":
             embedder = Embedder()
-            df_processed = embedder.bert_embeddings_from_df(df_processed, ["text"], "all-mpnet-base-v2")
+            df_processed = embedder.bert_embeddings_from_df(df_processed, ["text"], "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
             save_df(df_processed, dir_text_processed)
             logger.info("Embeddings calculated.")
 

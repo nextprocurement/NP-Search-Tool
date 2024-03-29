@@ -19,7 +19,7 @@ class Embedder(object):
         min_count: int = 10,
         sg: int = 1,
         default_w2vec: str = "word2vec-google-news-300",
-        default_bert: str = "all-mpnet-base-v2",
+        default_bert: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
         max_sequence_length: int = 384,
         logger: logging.Logger = None,
     ) -> None:
@@ -65,7 +65,7 @@ class Embedder(object):
         self,
         sent: list[str],
         w2vec_model: Word2Vec,
-        sbert_model_to_load: str ="all-mpnet-base-v2",
+        sbert_model_to_load: str ="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
         batch_size: int = 32,
         max_seq_length: int = None,
         method: str = "word2vec"
@@ -158,6 +158,8 @@ class Embedder(object):
             seed=42)
 
         path_save = corpus_file.parent / f"model_w2v_{corpus_file.stem}.model"
+        self.logger.info(f"-- -- Word2Vec vocabulary size {len(model_w2v.wv.key_to_index)}")
+        self.logger.info(f"-- -- Vocabulary: {model_w2v.wv.key_to_index}")
         model_w2v.save(path_save.as_posix())
 
         return model_w2v

@@ -618,25 +618,13 @@ class TMmodel(object):
 
         corpus_path = self._TMfolder.parent.parent.joinpath(
             'train_data/corpus.txt')
-        model_path = corpus_path.parent / f"model_w2v_{corpus_path.stem}.model"
 
-        if model_path.exists():
-            tpc_embeddings = emb.infer_embeddings(
-                embed_from=embed_from,
-                method="word2vec",
-                do_train_w2vec=False,
-                model_path=model_path,
-                corpus_file=self._TMfolder.parent.parent.joinpath(
-                    'train_data/corpus.txt')
-            )
-        else:
-            tpc_embeddings = emb.infer_embeddings(
-                embed_from=embed_from,
-                method="word2vec",
-                do_train_w2vec=True,
-                corpus_file=self._TMfolder.parent.parent.joinpath(
-                    'train_data/corpus.txt')
-            )
+        tpc_embeddings = emb.infer_embeddings(
+            embed_from=embed_from,
+            method="word2vec",
+            do_train_w2vec=True,
+            corpus_file=corpus_path
+        )
 
         return tpc_embeddings
 

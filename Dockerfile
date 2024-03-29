@@ -82,7 +82,7 @@ RUN git clone https://github.com/mimno/Mallet.git
 RUN cd /app/Mallet && ant
 
 # Download and cache the sentence transformer model
-ARG MODEL_NAME=paraphrase-multilingual-MiniLM-L12-v2
+ARG MODEL_NAME=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('${MODEL_NAME}')"
 
 # Download fasttext model
