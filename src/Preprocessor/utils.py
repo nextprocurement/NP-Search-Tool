@@ -249,6 +249,7 @@ def merge_data(
     df_text["id_tm"] = np.arange(len(df_text))
     df_text = df_text[["id_tm", "title", "summary", "lot_name", "text"]]
     df_text.to_parquet(dir_text_metadata, engine="pyarrow")
+    return df_text
 
 
 def filter_common_rare_words(

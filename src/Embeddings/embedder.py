@@ -6,7 +6,8 @@ from typing import List, Union
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-from gensim.models import Word2Vec
+from gensim.models import Word2Vec, FastText
+
 from sentence_transformers import SentenceTransformer
 from src.utils import set_logger
 
@@ -121,7 +122,8 @@ class Embedder(object):
 
     def _train_w2vec_model(
         self,
-        corpus_file: pathlib.Path
+        corpus_file: pathlib.Path,
+        subword_level: bool = True
     ):
         """
         Train a Word2Vec model using the corpus in the file specified. The model is saved in the same directory as the corpus file with name "model_w2v_{corpus_file.stem}.model".
@@ -148,14 +150,23 @@ class Embedder(object):
 
         # Create a memory-friendly iterator
         sentences = IterableSentence_fromfile(corpus_file)
-
-        model_w2v = Word2Vec(
-            sentences,
-            vector_size=self._vector_size,  # Dimensionality of the word vectors
-            window=self._window,  # Context window size
-            min_count=self._min_count,  # Ignores all words with total frequency lower than this
-            sg=self._sg,  # Training algorithm: 1 for skip-gram; otherwise CBOW
-            seed=42)
+        
+        if subword_level:
+            model_w2v =  FastText(
+                sentences,
+                vector_size=self._vector_size,  # Dimensionality of the word vectors
+                window=self._window,  # Context window size
+                min_count=self._min_count,  # Ignores all words with total frequency lower than this
+                sg=self._sg,  # Training algorithm: 1 for skip-gram; otherwise CBOW
+                seed=42)
+        else:
+            model_w2v = Word2Vec(
+                sentences,
+                vector_size=self._vector_size,  # Dimensionality of the word vectors
+                window=self._window,  # Context window size
+                min_count=self._min_count,  # Ignores all words with total frequency lower than this
+                sg=self._sg,  # Training algorithm: 1 for skip-gram; otherwise CBOW
+                seed=42)
 
         path_save = corpus_file.parent / f"model_w2v_{corpus_file.stem}.model"
         self.logger.info(f"-- -- Word2Vec vocabulary size {len(model_w2v.wv.key_to_index)}")
@@ -163,14 +174,15 @@ class Embedder(object):
         model_w2v.save(path_save.as_posix())
 
         return model_w2v
-
+    
     def infer_embeddings(
         self,
         embed_from: list[list[str]],
         method: str = "word2vec",
         model_path: str = None,
         do_train_w2vec: bool = False,
-        corpus_file: pathlib.Path = None
+        corpus_file: pathlib.Path = None,
+        subword_level: bool = True
     ) -> list:
         """
         Infer embeddings for a given list of sentences or words using the specified method.
@@ -211,7 +223,10 @@ class Embedder(object):
                     model_path = self._default_w2vec
 
             if model_path is not None:
-                model = Word2Vec.load(model_path.as_posix())
+                if subword_level:
+                    model = FastText.load(model_path.as_posix())
+                else:
+                    model = Word2Vec.load(model_path.as_posix())
             # If we are just getting the embedding of one word, return the embedding directly
             if len(embed_from) == 1 and len(embed_from[0]) == 1:
                 return model.wv[embed_from[0][0]]

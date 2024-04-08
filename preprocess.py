@@ -55,6 +55,7 @@ if __name__ == "__main__":
     # Access options
     use_dask = options.get("use_dask", False)
     subsample = options.get("subsample", None)
+    print(f"-- -- Subsample: {subsample}")
     pipe = options.get("pipe", [])
     merge_dfs = options.get("merge_dfs", ["minors", "insiders", "outsiders"])
     lang = options.get("lang", "all")
@@ -157,8 +158,8 @@ if __name__ == "__main__":
         logger.info(f"Stage: '{p}'")
         # Merge multiple dataframes
         if p == "merge_data":
-            merge_data(dir_data, dir_text_processed, merge_dfs=merge_dfs, logger=logger)
-            logger.info("New dataframe saved.")
+            df_merged = merge_data(dir_data, dir_text_processed, merge_dfs=merge_dfs, logger=logger)
+            logger.info(f"New dataframe saved with {len(df_merged)} elements.")
             # load info if it's not the last processing step
             if not proc == n_proc:
                 df_processed, df_processed_ids_ = load_df(dir_text_processed, lang=lang)
