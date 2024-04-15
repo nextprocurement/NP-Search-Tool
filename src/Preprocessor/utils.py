@@ -110,6 +110,7 @@ def merge_data(
     """
     dir_data = Path(dir_data)
     dfs = []
+    origins = []
 
     if dir_data.suffix == ".zip":
         # If it's a zip file, create a zipfile.Path and find the specific folder within it.
@@ -120,6 +121,7 @@ def merge_data(
                 if file_path in all_files:
                     pq_file = io.BytesIO(zip_ref.read(file_path))
                     dfs.append(pd.read_parquet(pq_file))
+                    origins.append(d)
                 elif logger:
                     logger.warning(
                         f"File {d}.parquet does not exist in the zip file, skipping."
@@ -133,6 +135,7 @@ def merge_data(
             logger.warning(f"File {file_path.as_posix()} does not exist, skipping.")
             if file_path.exists():
                 dfs.append(pd.read_parquet(file_path))
+                origins.append(d)
             elif logger:
                 logger.warning(f"File {d}.parquet does not exist, skipping.")
             else:
@@ -144,7 +147,7 @@ def merge_data(
 
     # Unify texts from all sources
     dfs_text = []
-    for df in dfs:
+    for df, d in zip(dfs, origins):
         # Reset index and rename to common identifier: new index is generated as the concatenation of 'zip', 'file name', 'entry'
         index_names = df.index.names
         orig_cols = df.columns
@@ -238,16 +241,18 @@ def merge_data(
 
         if eliminate_duplicates:
             df_text = df_text.drop_duplicates(subset=['text'])
+        
+        df_text["origin"] = [d] * len(df_text)
 
         dfs_text.append(df_text)
 
     # Concatenate and save as unique DataFrame-
-    df_text = pd.concat(dfs_text)[["title", "summary", "lot_name", "text"]]
+    df_text = pd.concat(dfs_text)[["title", "summary", "lot_name", "text", "origin"]]
     mask = df_text['lot_name'].apply(lambda x: isinstance(x, int))
     df_text.loc[mask, 'lot_name'] = df_text.loc[mask, 'lot_name'].astype(str)
     dir_text_metadata.parent.mkdir(parents=True, exist_ok=True)
     df_text["id_tm"] = np.arange(len(df_text))
-    df_text = df_text[["id_tm", "title", "summary", "lot_name", "text"]]
+    df_text = df_text[["id_tm", "title", "summary", "lot_name", "text", "origin"]]
     df_text.to_parquet(dir_text_metadata, engine="pyarrow")
     return df_text
 

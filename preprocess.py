@@ -158,7 +158,7 @@ if __name__ == "__main__":
         logger.info(f"Stage: '{p}'")
         # Merge multiple dataframes
         if p == "merge_data":
-            df_merged = merge_data(dir_data, dir_text_processed, merge_dfs=merge_dfs, logger=logger)
+            df_merged = merge_data(dir_data, dir_text_processed, merge_dfs=merge_dfs, logger=logger, use_lot_info=True)
             logger.info(f"New dataframe saved with {len(df_merged)} elements.")
             # load info if it's not the last processing step
             if not proc == n_proc:
