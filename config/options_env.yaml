@@ -51,7 +51,7 @@ use_ngrams: all  # Which ngrams to use
   # - proposed_ngrams
 
 training_params:
-  num_topics: 8 #5,10,15,20,25,30,50,75,100,150 # Number of training topics
+  num_topics: 10,20,25,30,50,75,100,150 #15,30,50,75 #5,10,15,20,25,30,50,75,100,150 # Number of training topics
   word_min_length: 3  # Minimum length of words to consider
   Mallet_params:  # Parameters for the Mallet LDA model
     alpha: 5  

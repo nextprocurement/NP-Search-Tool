@@ -172,7 +172,7 @@ if __name__ == "__main__":
     path_place_processed_3 = path_parquets / "trf.parquet"
     # This is PLACE WITHOUT LOTE processed with Spacy md model + filtering
     # stopwords (/export/usuarios_ml4ds/lbartolome/NextProcurement/data/stw_lists/es)
-    path_place_processed_no_lote = path_parquets / "md_sin_lote.parquet"
+    path_place_processed_no_lote = path_parquets / "md_sin_lote_es.parquet" #"md_sin_lote.parquet"
     path_save = pathlib.Path(
         "/export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/processed/minors_insiders_outsiders.parquet")
     path_manual_stops = "sample_data/stopwords"
@@ -242,27 +242,36 @@ if __name__ == "__main__":
         for linea in archivo:
             linea = linea.strip()
             palabras = linea.split(':')
-            pares_diccionario[palabras[0]] = palabras[1]
+            #if det(palabras[0]) == "es":
+            #    pares_diccionario[palabras[0]] = palabras[1]
+            #else:
+            #    print(palabras[0], det(palabras[0]))
+            patron = r'\b{}\b'.format(re.escape(palabras[0]))
+            pares_diccionario[patron] = palabras[1]
+    pares_diccionario = \
+        dict(sorted(pares_diccionario.items(), key=lambda x: x[0]))
     
     def reemplazar_palabras(texto, diccionario):
         for palabra_original, palabra_nueva in diccionario.items():
             #patron = r'\b{}\b'.format(re.escape(palabra_original))
-            texto = texto.replace(palabra_original, palabra_nueva)
-            #texto = re.sub(patron, palabra_nueva, texto)
+            #texto = texto.replace(palabra_original, palabra_nueva)
+            texto = re.sub(palabra_original, palabra_nueva, texto)
         return texto
     
     processed['lemmas'] = processed['lemmas'].apply(lambda x: reemplazar_palabras(x, pares_diccionario))
 
     place_without_lote = pd.merge(processed,place_without_lote,how='left', on='id_tm')
     dfs_to_train.append(("place_without_lote", place_without_lote))
+    
     place_without_lote_minors = place_without_lote[place_without_lote.origen == "minors"]
     dfs_to_train.append(("place_without_lote_minors", place_without_lote_minors))
     place_without_lote_outsiders = place_without_lote[place_without_lote.origen == "outsiders"]
     dfs_to_train.append(("place_without_lote_outsiders", place_without_lote_outsiders))
     place_without_lote_insiders = place_without_lote[place_without_lote.origen == "insiders"]
     dfs_to_train.append(("place_without_lote_insiders", place_without_lote_insiders))
-     
+   
     # Train models
+    lang = "es"
     models_train = []
     for k in num_topics:
         logger.info(f"{'='*10} Training models with {k} topics. {'='*10}")
@@ -279,7 +288,7 @@ if __name__ == "__main__":
                 f"Train: {len(texts_train)} docs. Test: {len(texts_test)}.")
             
             # Update model parameters
-            model_init_params["model_dir"] = (dir_output_models.joinpath(args.trainer)).joinpath(f"{args.trainer}_{name}_{k}_topics")
+            model_init_params["model_dir"] = (dir_output_models.joinpath(args.trainer)).joinpath(f"{lang}_{args.trainer}_{name}_{k}_topics")
             
             # Create model
             models_train.append(model_init_params["model_dir"])

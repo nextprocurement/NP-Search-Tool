@@ -141,10 +141,10 @@ class TMmodel(object):
         self._ndocs_active = np.array((self._thetas != 0).sum(0).tolist()[0])
         self._tpc_descriptions = [el[1]
                                   for el in self.get_tpc_word_descriptions()]
-        self.calculate_gensim_dic()
+        #self.calculate_gensim_dic()
         self.calculate_topic_coherence()  # cohrs_aux
-        self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
-        self._tpc_embeddings = self.get_tpc_word_descriptions_embeddings()
+        #self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
+        #self._tpc_embeddings = self.get_tpc_word_descriptions_embeddings()
         self._calculate_sims()
 
         # We are ready to save all variables in the model
@@ -179,10 +179,10 @@ class TMmodel(object):
             'ndocs_active.npy'), self._ndocs_active)
         with self._TMfolder.joinpath('tpc_descriptions.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._tpc_descriptions))
-        with self._TMfolder.joinpath('tpc_labels.txt').open('w', encoding='utf8') as fout:
-            fout.write('\n'.join(self._tpc_labels))
-        np.save(self._TMfolder.joinpath('tpc_embeddings.npy'), np.array(
-            self._tpc_embeddings, dtype=object), allow_pickle=True)
+        #with self._TMfolder.joinpath('tpc_labels.txt').open('w', encoding='utf8') as fout:
+        #    fout.write('\n'.join(self._tpc_labels))
+        #np.save(self._TMfolder.joinpath('tpc_embeddings.npy'), np.array(
+        #    self._tpc_embeddings, dtype=object), allow_pickle=True)
 
         # Generate also pyLDAvisualization
         # pyLDAvis currently raises some Deprecation warnings

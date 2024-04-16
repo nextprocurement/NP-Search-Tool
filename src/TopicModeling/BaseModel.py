@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import pickle
 import shutil
 import tempfile
@@ -67,7 +68,8 @@ class BaseModel:
         self._infer_data_dir.mkdir(parents=True, exist_ok=True)
         self._test_data_dir = self.model_dir.joinpath("test_data")
         self._test_data_dir.mkdir(parents=True, exist_ok=True)
-        self._temp_dir = Path(tempfile.gettempdir())
+        self._temp_dir = Path(os.getcwd()) / "tmp" #Path(tempfile.gettempdir())
+        self._temp_dir.mkdir(parents=True, exist_ok=True)
 
     @abstractmethod
     def _model_train(
