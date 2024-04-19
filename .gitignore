@@ -20,3 +20,7 @@ _test*
 # environment files
 .env
 *.DS_Store
+aux_scripts/.ipynb_checkpoints
+tmp
+app.log
+test

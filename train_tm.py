@@ -172,7 +172,7 @@ if __name__ == "__main__":
     path_place_processed_3 = path_parquets / "trf.parquet"
     # This is PLACE WITHOUT LOTE processed with Spacy md model + filtering
     # stopwords (/export/usuarios_ml4ds/lbartolome/NextProcurement/data/stw_lists/es)
-    path_place_processed_no_lote = path_parquets / "md_sin_lote_es.parquet" #"md_sin_lote.parquet"
+    path_place_processed_no_lote = path_parquets / "trf_lote_es.parquet" #"md_sin_lote_es.parquet" #"md_sin_lote.parquet"
     path_save = pathlib.Path(
         "/export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/processed/minors_insiders_outsiders.parquet")
     path_manual_stops = "sample_data/stopwords"
@@ -219,8 +219,9 @@ if __name__ == "__main__":
         dfs_to_train.append((f"place_with_lote_insiders_{processed_name}", place_with_lote_insiders))
     """
     
-    # Merge processed data without lote with PLACE data
+    # Merge processed data without lote with PLACE datas
     processed = pd.read_parquet(path_place_processed_no_lote)
+    processed = processed.sample(frac=0.1).reset_index(drop=True)
     if filter_stops:
             stopwords = set()
             for archivo in os.listdir(path_manual_stops):

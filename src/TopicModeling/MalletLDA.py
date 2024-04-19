@@ -325,6 +325,7 @@ class MalletLDAModel(BaseModel):
         cols = [k for k in np.arange(2, self.num_topics + 2)]
         thetas32 = np.loadtxt(thetas_file, delimiter='\t',
                               dtype=np.float32, usecols=cols)
+        self.logger.info(thetas32.shape)
 
         # Create figure to check thresholding is correct
         #self._SaveThrFig(
@@ -355,6 +356,8 @@ class MalletLDAModel(BaseModel):
                     betas[tpc, i] += cnt
                     term_freq[i] += cnt
         betas = normalize(betas, axis=1, norm='l1')
+        
+        self.logger.info(betas)
 
         # Save vocabulary and frequencies
         vocabfreq_file = self._model_data_dir.joinpath('vocab_freq.txt')
@@ -363,6 +366,7 @@ class MalletLDAModel(BaseModel):
              for el in zip(vocab, term_freq)]
 
         tm = TMmodel(TMfolder=self._model_data_dir.joinpath('TMmodel'))
+        self.logger.info("crea el tm")
         tm.create(betas=betas, thetas=thetas32, alphas=alphas,
                   vocab=vocab)
 

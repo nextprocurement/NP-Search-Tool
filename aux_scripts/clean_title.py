@@ -115,7 +115,8 @@ def search(word):
     url1 = host + '/?w=' + word
     # print(url1)
     url2 = host + '/srv/search?w=' + word
-
+    
+    time.sleep(0.01)
     response = s.get(url1).text
     soup = BeautifulSoup(response, parser)
     text = soup.get_text()

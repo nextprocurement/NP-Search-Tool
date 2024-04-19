@@ -98,12 +98,12 @@ def melt_two_series(s1, s2):
 
 
 def merge_data(
-    dir_data: Union[str, Path],
-    dir_text_metadata: Union[str, Path],
-    merge_dfs: List[str] = ["minors", "insiders", "outsiders"],
+    dir_data,
+    dir_text_metadata,
+    merge_dfs= ["minors", "insiders", "outsiders"],
     use_lot_info: bool = True,
     eliminate_duplicates: bool = True,
-    logger: Logger = None,
+    logger = None,
 ):
     """
     Merge original data parquet files into single dataframe
@@ -162,6 +162,8 @@ def merge_data(
         reverse_joint_cnames = {v: k for k, v in joint_cnames.items()}
 
         if not use_lot_info:
+            cols_keep = ["title", "summary", "text", "origin"]
+            cols_order = ["id_tm", "title", "summary", "text", "origin"]
             # If we don't want to use lot info, we only need to select the text columns 'summary' and 'title'
             text_cols = sorted(
                 [
@@ -169,7 +171,7 @@ def merge_data(
                     if "summary" in k or "title" in k
                 ]
             )
-
+            
             df_text = df.loc[:, text_cols]
             use_cols = [
                 reverse_joint_cnames[c].split(".", 1)[-1]
@@ -178,8 +180,12 @@ def merge_data(
             df_text.columns = use_cols
 
             # Define columns that will be used as text
-            columns_for_text = ["title", "summary"]#"id", 
+            columns_for_text = ["title", "summary"]
         else:
+            print("USING LOT INFO")
+            cols_keep = ["title", "summary", "lot_name", "text", "origin"]
+            cols_order = ["id_tm", "title", "summary", "lot_name", "text", "origin"]
+            
             # If we want to use lot info, we need to select the text columns 'summary' and 'title' and the columns 'ProcurementProjectLot.ProcurementProject.Name' and 'ProcurementProjectLot.ID'
             text_cols = sorted(
                 [
@@ -197,7 +203,6 @@ def merge_data(
                 reverse_joint_cnames[c].split(".", 1)[-1]
                 for c in text_cols
             ]
-            print(use_cols)
             df_text.columns = use_cols
 
             if "ProcurementProjectLot.ID" in use_cols:
@@ -208,7 +213,6 @@ def merge_data(
                     "ProcurementProjectLot.ProcurementProject.Name": "lot_name",
                 }
                 df_text = df_text.rename(columns=rename_columns)
-                print(df_text.columns)
 
                 # Convert columns 'lot_name' and 'lot_id' to lists
                 df_text["lot_name"] = df_text["lot_name"].apply(process_lote)
@@ -231,6 +235,11 @@ def merge_data(
                 # Define columns that will be used as text
                 columns_for_text = ["title", "summary", "lot_name"]#"id"
             else:
+                rename_columns = {
+                    "ContractFolderStatus.ProcurementProject.RequiredCommodityClassification.ItemClassificationCode": "cpv",
+                }
+                df_text = df_text.rename(columns=rename_columns)
+                
                 df_text["lot_name"] = len(df_text) * np.nan
 
         df_text["text"] = (
@@ -247,12 +256,13 @@ def merge_data(
         dfs_text.append(df_text)
 
     # Concatenate and save as unique DataFrame-
-    df_text = pd.concat(dfs_text)[["title", "summary", "lot_name", "text", "origin"]]
-    mask = df_text['lot_name'].apply(lambda x: isinstance(x, int))
-    df_text.loc[mask, 'lot_name'] = df_text.loc[mask, 'lot_name'].astype(str)
+    df_text = pd.concat(dfs_text)[cols_keep]
+    if "lot_name" in cols_keep:
+        mask = df_text['lot_name'].apply(lambda x: isinstance(x, int))
+        df_text.loc[mask, 'lot_name'] = df_text.loc[mask, 'lot_name'].astype(str)
     dir_text_metadata.parent.mkdir(parents=True, exist_ok=True)
     df_text["id_tm"] = np.arange(len(df_text))
-    df_text = df_text[["id_tm", "title", "summary", "lot_name", "text", "origin"]]
+    df_text = df_text[cols_order]
     df_text.to_parquet(dir_text_metadata, engine="pyarrow")
     return df_text
 

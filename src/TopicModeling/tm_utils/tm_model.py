@@ -136,16 +136,21 @@ class TMmodel(object):
 
         # Initial sort of topics according to size. Calculate other variables
         self._sort_topics()
+        self._logger.info("-- -- Sorted")
         self._calculate_beta_ds()
+        self._logger.info("-- -- betas ds")
         self._calculate_topic_entropy()
+        self._logger.info("-- -- entropy")
         self._ndocs_active = np.array((self._thetas != 0).sum(0).tolist()[0])
+        self._logger.info("-- -- active")
         self._tpc_descriptions = [el[1]
                                   for el in self.get_tpc_word_descriptions()]
+        self._logger.info("-- -- descriptions")
         #self.calculate_gensim_dic()
-        self.calculate_topic_coherence()  # cohrs_aux
+        #self.calculate_topic_coherence()  # cohrs_aux
         #self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
         #self._tpc_embeddings = self.get_tpc_word_descriptions_embeddings()
-        self._calculate_sims()
+        #self._calculate_sims()
 
         # We are ready to save all variables in the model
         self._save_all()
@@ -166,20 +171,20 @@ class TMmodel(object):
         np.save(self._TMfolder.joinpath('alphas.npy'), self._alphas)
         np.save(self._TMfolder.joinpath('betas.npy'), self._betas)
         sparse.save_npz(self._TMfolder.joinpath('thetas.npz'), self._thetas)
-        sparse.save_npz(self._TMfolder.joinpath('distances.npz'), self._sims)
+        #sparse.save_npz(self._TMfolder.joinpath('distances.npz'), self._sims)
 
         with self._TMfolder.joinpath('edits.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._edits))
         np.save(self._TMfolder.joinpath('betas_ds.npy'), self._betas_ds)
-        np.save(self._TMfolder.joinpath(
-            'topic_entropy.npy'), self._topic_entropy)
-        np.save(self._TMfolder.joinpath(
-            'topic_coherence.npy'), self._topic_coherence)
+        #np.save(self._TMfolder.joinpath(
+        #    'topic_entropy.npy'), self._topic_entropy)
+        #np.save(self._TMfolder.joinpath(
+        #    'topic_coherence.npy'), self._topic_coherence)
         np.save(self._TMfolder.joinpath(
             'ndocs_active.npy'), self._ndocs_active)
         with self._TMfolder.joinpath('tpc_descriptions.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._tpc_descriptions))
-        #with self._TMfolder.joinpath('tpc_labels.txt').open('w', encoding='utf8') as fout:
+        #with self._TMfolder.joinpath('tpc_labels.txt').open('w', #encoding='utf8') as fout:
         #    fout.write('\n'.join(self._tpc_labels))
         #np.save(self._TMfolder.joinpath('tpc_embeddings.npy'), np.array(
         #    self._tpc_embeddings, dtype=object), allow_pickle=True)

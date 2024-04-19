@@ -31,7 +31,7 @@ dir_data: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sampl
 dir_text_processed: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/processed  # Path to output processed text metadata parquet file
 dir_logical: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/logical_dtsets
 dir_output_models: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/models/  # Path to output topic models
-dir_mallet: /export/usuarios_ml4ds/jarenas/github/IntelComp/ITMT/topicmodeler/src/topicmodeling/mallet-2.0.8/bin/mallet # This path shouldn't be changed when using docker
+dir_mallet: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/models/mallet-2.0.8/bin/mallet # This path shouldn't be changed when using docker
 
 # List loading options
 # Modify these values to choose which vocabulary, stopwords and ngrams to use.
