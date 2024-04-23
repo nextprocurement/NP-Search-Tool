@@ -247,7 +247,12 @@ def merge_data(
             .applymap(fill_na, fill=None)
             .agg(lambda x: ". ".join([str(el) for el in x if el]), axis=1)
         )
-
+        
+        # Include CPV as a separate column but not in the text aggregation
+        #df_text['CPV'] = df["ContractFolderStatus.ProcurementProject.RequiredCommodityClassification.ItemClassificationCode"]
+        #cols_keep.append("CPV")
+        #cols_order.append("CPV")  
+              
         if eliminate_duplicates:
             df_text = df_text.drop_duplicates(subset=['text'])
         

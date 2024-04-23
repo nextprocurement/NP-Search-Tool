@@ -24,3 +24,5 @@ aux_scripts/.ipynb_checkpoints
 tmp
 app.log
 test
+preprocess_Carlos.py
+train_tm_Carlos.py
