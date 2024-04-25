@@ -10,6 +10,7 @@ models/
 Mallet/
 report/
 sample_data
+textos_BSC
 __pycache__
 
 # ignore other files
@@ -26,3 +27,6 @@ app.log
 test
 preprocess_Carlos.py
 train_tm_Carlos.py
+train_tm_Carlos_all.py
+
+
