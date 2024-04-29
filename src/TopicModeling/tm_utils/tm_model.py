@@ -146,8 +146,8 @@ class TMmodel(object):
         self._tpc_descriptions = [el[1]
                                   for el in self.get_tpc_word_descriptions()]
         self._logger.info("-- -- descriptions")
-        #self.calculate_gensim_dic()
-        #self.calculate_topic_coherence()  # cohrs_aux
+        self.calculate_gensim_dic()
+        self.calculate_topic_coherence()  # cohrs_aux
         #self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
         #self._tpc_embeddings = self.get_tpc_word_descriptions_embeddings()
         #self._calculate_sims()
@@ -176,10 +176,10 @@ class TMmodel(object):
         with self._TMfolder.joinpath('edits.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._edits))
         np.save(self._TMfolder.joinpath('betas_ds.npy'), self._betas_ds)
-        #np.save(self._TMfolder.joinpath(
-        #    'topic_entropy.npy'), self._topic_entropy)
-        #np.save(self._TMfolder.joinpath(
-        #    'topic_coherence.npy'), self._topic_coherence)
+        np.save(self._TMfolder.joinpath(
+            'topic_entropy.npy'), self._topic_entropy)
+        np.save(self._TMfolder.joinpath(
+            'topic_coherence.npy'), self._topic_coherence)
         np.save(self._TMfolder.joinpath(
             'ndocs_active.npy'), self._ndocs_active)
         with self._TMfolder.joinpath('tpc_descriptions.txt').open('w', encoding='utf8') as fout:
@@ -427,8 +427,12 @@ class TMmodel(object):
             corpusFile = self._TMfolder.parent.parent.joinpath(
                 'train_data/corpus.txt')
         with corpusFile.open("r", encoding="utf-8") as f:
-            corpus = [line.rsplit(" 0 ")[1].strip().split() for line in f.readlines(
-            ) if line.rsplit(" 0 ")[1].strip().split() != []]
+                lines = f.readlines()  # Read all lines into a list
+                f.seek(0)  # Reset the file pointer to the beginning
+                try:
+                    corpus = [line.rsplit(" 0 ")[1].strip().split() for line in lines]
+                except:
+                    corpus = [line.rsplit("\t0\t")[1].strip().split() for line in lines]
 
         # Import necessary modules for coherence calculation with Gensim
         from gensim.corpora import Dictionary
