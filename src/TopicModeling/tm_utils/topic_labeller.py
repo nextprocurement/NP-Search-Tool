@@ -129,5 +129,5 @@ class TopicLabeller(object):
             A list of labels for the chemical descriptions.
         """
 
-        gpt_prompt = f"Give me a label in spanish for each of the following set of words and return it as a Python list with the labels: {chem_descs}"
+        gpt_prompt = f"Provide a label in the same language as the given set of words, and return them as a Python list of labels: {chem_descs}"
         return eval(self._promt(gpt_prompt))
