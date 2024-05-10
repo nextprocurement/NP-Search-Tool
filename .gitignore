@@ -8,6 +8,7 @@ data/
 gph/
 models/
 Mallet/
+Mallet-202108/
 report/
 sample_data
 textos_BSC
@@ -22,9 +23,11 @@ _test*
 .env
 *.DS_Store
 aux_scripts/.ipynb_checkpoints
+aux_scripts/eval_graphs_deliverables/.ipynb_checkpoints
 tmp
 app.log
 test
+config/options_carlos.yaml
 preprocess_Carlos.py
 train_tm_Carlos.py
 train_tm_Carlos_all.py

@@ -146,9 +146,9 @@ class TMmodel(object):
         self._tpc_descriptions = [el[1]
                                   for el in self.get_tpc_word_descriptions()]
         self._logger.info("-- -- descriptions")
-        self.calculate_gensim_dic()
-        self.calculate_topic_coherence()  # cohrs_aux
-        #self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
+        #self.calculate_gensim_dic()
+        #self.calculate_topic_coherence()  # cohrs_aux
+        self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
         #self._tpc_embeddings = self.get_tpc_word_descriptions_embeddings()
         #self._calculate_sims()
 
@@ -178,14 +178,14 @@ class TMmodel(object):
         np.save(self._TMfolder.joinpath('betas_ds.npy'), self._betas_ds)
         np.save(self._TMfolder.joinpath(
             'topic_entropy.npy'), self._topic_entropy)
-        np.save(self._TMfolder.joinpath(
-            'topic_coherence.npy'), self._topic_coherence)
+        #np.save(self._TMfolder.joinpath(
+        #    'topic_coherence.npy'), self._topic_coherence)
         np.save(self._TMfolder.joinpath(
             'ndocs_active.npy'), self._ndocs_active)
         with self._TMfolder.joinpath('tpc_descriptions.txt').open('w', encoding='utf8') as fout:
             fout.write('\n'.join(self._tpc_descriptions))
-        #with self._TMfolder.joinpath('tpc_labels.txt').open('w', #encoding='utf8') as fout:
-        #    fout.write('\n'.join(self._tpc_labels))
+        with self._TMfolder.joinpath('tpc_labels.txt').open('w', encoding='utf8') as fout:
+            fout.write('\n'.join(self._tpc_labels))
         #np.save(self._TMfolder.joinpath('tpc_embeddings.npy'), np.array(
         #    self._tpc_embeddings, dtype=object), allow_pickle=True)
 
@@ -797,7 +797,7 @@ class TMmodel(object):
         self._load_alphas()
         self._load_betas()
         self._load_thetas()
-        # self._load_topic_coherence()
+        self._load_topic_coherence()
         self.load_tpc_descriptions()
         self.load_tpc_labels()
         self._load_edits()
@@ -936,7 +936,7 @@ class TMmodel(object):
         self._load_thetas()
         self._load_betas_ds()
         self._load_topic_entropy()
-        self._load_topic_coherence()
+        #self._load_topic_coherence()
         self.load_tpc_descriptions()
         self.load_tpc_labels()
         self._load_ndocs_active()
@@ -948,7 +948,7 @@ class TMmodel(object):
             "betas_ds": [self._betas_ds],
             "alphas": [self._alphas],
             "topic_entropy": [self._topic_entropy],
-            "topic_coherence": [self._topic_coherence],
+            #"topic_coherence": [self._topic_coherence],
             "ndocs_active": [self._ndocs_active],
             "tpc_descriptions": [self._tpc_descriptions],
             "tpc_labels": [self._tpc_labels],
