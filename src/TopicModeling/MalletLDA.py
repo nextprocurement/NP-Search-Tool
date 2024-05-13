@@ -65,12 +65,10 @@ class MalletLDAModel(BaseModel):
         Returns path to generated .mallet file.
         """
         # Define directories
-        # texts_txt_path = name.joinpath("corpus.txt")
-        # texts_mallet_path = name.joinpath("corpus.mallet")
         if save_temp:
             path_save = self._temp_mallet_dir
         else:
-            path_save = pathlib.Path(path_model) / ("model_data")
+            path_save = pathlib.Path(path_model) / ("infer_data")
         if predict:
             texts_txt_path = path_save.joinpath(
                 "corpus_predict.txt")
@@ -97,24 +95,19 @@ class MalletLDAModel(BaseModel):
             # f"--remove-stopwords "
         )
         if predict:
-            cmd += f"--use-pipe-from {path_model.joinpath('train_data').joinpath('corpus.mallet')}"
+            inferencer_mallet = pathlib.Path(path_model) / "train_data" / "corpus.mallet" #/ "model_data" / "inferencer.mallet"
+            cmd += f"--use-pipe-from {inferencer_mallet}"
         check_output(args=cmd, shell=True)
+        self.logger.info(f"Running command: {cmd}")
         self.logger.info(f"corpus.mallet created")
 
         # Move info to desired location
-        if predict:
-            name = self._infer_data_dir
-        else:
-            name = self._train_data_dir
-        texts_txt_path = shutil.copy(
-            texts_txt_path, name.joinpath("corpus.txt"))
-        texts_mallet_path = shutil.copy(
-            texts_mallet_path, name.joinpath("corpus.mallet")
-        )
-        # texts_txt_path = shutil.move(texts_txt_path, name.joinpath("corpus.txt"))
-        # texts_mallet_path = shutil.move(texts_mallet_path, name.joinpath("corpus.mallet"))
-        # texts_txt_path = name.joinpath("corpus.txt")
-        # texts_mallet_path = name.joinpath("corpus.mallet")
+        if save_temp:
+            name = self._infer_data_dir if predict else self._train_data_dir
+            texts_txt_path, texts_mallet_path = shutil.copy(
+                texts_txt_path, name.joinpath("corpus.txt")), shutil.copy(
+                texts_mallet_path, name.joinpath("corpus.mallet"))
+
         return Path(texts_mallet_path)
 
     def _model_train(
@@ -303,6 +296,7 @@ class MalletLDAModel(BaseModel):
             path_mallet = self._mallet_path
 
         self.logger.info("Infer topics")
+        
         # Infer topics
         cmd = (
             f"{path_mallet} infer-topics "
@@ -325,7 +319,6 @@ class MalletLDAModel(BaseModel):
         cols = [k for k in np.arange(2, self.num_topics + 2)]
         thetas32 = np.loadtxt(thetas_file, delimiter='\t',
                               dtype=np.float32, usecols=cols)
-        self.logger.info(thetas32.shape)
 
         # Create figure to check thresholding is correct
         #self._SaveThrFig(
@@ -356,8 +349,6 @@ class MalletLDAModel(BaseModel):
                     betas[tpc, i] += cnt
                     term_freq[i] += cnt
         betas = normalize(betas, axis=1, norm='l1')
-        
-        self.logger.info(betas)
 
         # Save vocabulary and frequencies
         vocabfreq_file = self._model_data_dir.joinpath('vocab_freq.txt')
@@ -366,7 +357,6 @@ class MalletLDAModel(BaseModel):
              for el in zip(vocab, term_freq)]
 
         tm = TMmodel(TMfolder=self._model_data_dir.joinpath('TMmodel'))
-        self.logger.info("crea el tm")
         tm.create(betas=betas, thetas=thetas32, alphas=alphas,
                   vocab=vocab)
 

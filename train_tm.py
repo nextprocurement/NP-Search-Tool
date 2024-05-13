@@ -293,6 +293,8 @@ if __name__ == "__main__":
             
             print("-- -- Model trained in:", time.time() - start)
 
+            print(f"-- -- Model saved in {model_init_params['model_dir']}")
+            
             # Create trainconfig
             create_trainconfig(
                 modeldir=model_init_params["model_dir"],
