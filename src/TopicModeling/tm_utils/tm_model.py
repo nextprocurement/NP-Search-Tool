@@ -146,8 +146,8 @@ class TMmodel(object):
         self._tpc_descriptions = [el[1]
                                   for el in self.get_tpc_word_descriptions()]
         self._logger.info("-- -- descriptions")
-        #self.calculate_gensim_dic()
-        #self.calculate_topic_coherence()  # cohrs_aux
+        self.calculate_gensim_dic()
+        self.calculate_topic_coherence()  # cohrs_aux
         self._tpc_labels = [el[1] for el in self.get_tpc_labels()]
         #self._tpc_embeddings = self.get_tpc_word_descriptions_embeddings()
         #self._calculate_sims()
@@ -419,14 +419,27 @@ class TMmodel(object):
             [tpc.split(', ') for tpc in self._tpc_descriptions]
 
         # Get texts to calculate coherence
+        type = None
         if self._TMfolder.parent.parent.joinpath('test_data/corpus.txt').is_file():
             self._logger.info("--- Calculating coherence with test data.")
             corpusFile = self._TMfolder.parent.parent.joinpath(
                 'test_data/corpus.txt')
+            type = "test"
         else:
             corpusFile = self._TMfolder.parent.parent.joinpath(
                 'train_data/corpus.txt')
+            type = "train"
         with corpusFile.open("r", encoding="utf-8") as f:
+                lines = f.readlines()  # Read all lines into a list
+                f.seek(0)  # Reset the file pointer to the beginning
+                try:
+                    corpus = [line.rsplit(" 0 ")[1].strip().split() for line in lines]
+                except:
+                    corpus = [line.rsplit("\t0\t")[1].strip().split() for line in lines]
+        if len(corpus) == 0 and type == "test":
+            corpusFile = self._TMfolder.parent.parent.joinpath(
+                'train_data/corpus.txt')
+            with corpusFile.open("r", encoding="utf-8") as f:
                 lines = f.readlines()  # Read all lines into a list
                 f.seek(0)  # Reset the file pointer to the beginning
                 try:
@@ -481,6 +494,8 @@ class TMmodel(object):
                         self.logger.error(
                             '-- -- -- Coherence metric provided is not available.')
                 self._topic_coherence = cohrs_aux
+                
+        import pdb; pdb.set_trace()
 
     def _load_topic_coherence(self):
         if self._topic_coherence is None:
