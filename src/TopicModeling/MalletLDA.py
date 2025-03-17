@@ -121,7 +121,9 @@ class MalletLDAModel(BaseModel):
         num_iterations: int = 1000,
         doc_topic_thr: float = 0.0,
         texts_test: List[str] = None,
-        ids_test: List[int] = None
+        ids_test: List[int] = None,
+        extra: bool = False,
+        path_data: str = None,
     ):
         """
         Train LDA model
@@ -133,7 +135,7 @@ class MalletLDAModel(BaseModel):
         alpha: float
             Parameter for the Dirichlet prior on doc distribution
         optimize_interval: int
-            Number of steps betweeen parameter reestimation
+            Number of steps between parameter re-estimation
         num_threads: int
             Number of threads for the optimization
         num_iterations: int
@@ -239,7 +241,7 @@ class MalletLDAModel(BaseModel):
         # topic_keys = np.loadtxt(self._model_data_dir.joinpath('topic-keys.txt'), usecols=range(2, self.num_topics + 2))
 
         # Create TMmodel
-        self._createTMmodel()
+        self._createTMmodel(extra, path_data)
 
         return pred, topic_keys
 
@@ -312,13 +314,12 @@ class MalletLDAModel(BaseModel):
                           usecols=range(2, self.num_topics + 2))
         return pred
 
-    def _createTMmodel(self):
+    def _createTMmodel(self, extra=False, path_data=None):
 
         # Load thetas matrix for sparsification
         thetas_file = self._model_data_dir.joinpath("doc-topics.txt")
         cols = [k for k in np.arange(2, self.num_topics + 2)]
-        thetas32 = np.loadtxt(thetas_file, delimiter='\t',
-                              dtype=np.float32, usecols=cols)
+        thetas32 = np.loadtxt(thetas_file, delimiter='\t', dtype=np.float32, usecols=cols)
 
         # Create figure to check thresholding is correct
         #self._SaveThrFig(
@@ -358,7 +359,7 @@ class MalletLDAModel(BaseModel):
 
         tm = TMmodel(TMfolder=self._model_data_dir.joinpath('TMmodel'))
         tm.create(betas=betas, thetas=thetas32, alphas=alphas,
-                  vocab=vocab)
+                  vocab=vocab, extra=extra, path_data=path_data)
 
         # Remove doc-topics file
         thetas_file.unlink()

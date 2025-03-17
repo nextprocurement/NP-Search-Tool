@@ -1,38 +1,31 @@
 # NextProcurement
 
-## Funcionalidad
+# Functionality
+This project provides a preprocessing script to load texts from metadata available in parquet format. The texts are preprocessed for all subsequent activities (such as topic modeling and others).
 
-Este proyecto proporciona un script de preprocesamiento para cargar textos a partir de metadatos disponibles en formato parquet. Los textos son preprocesados para todas las actividades siguientes (como el modelado de tópicos y otros).
-
-## Ejecución
-
-Para ejecutar el script, basta con usar el comando siguiente:
-
-```bash
+# Execution
+To execute the script, simply use the following command:
+```
 python preprocess.py [--options config/options.yaml]
 ```
 
-Por defecto, se carga el fichero de configuración `config/options.yaml`. Este fichero contiene todas las opciones y configuraciones necesarias para la ejecución del script.
+By default, the configuration file `config/options.yaml` is loaded. This file contains all the necessary options and configurations for the execution of the script.
 
-## Configuración
+# Configuration
+The configuration of the preprocessing script is done through the _options.yaml_ file. In this file, various options can be set such as:
 
-La configuración del script de preprocesamiento se realiza a través del fichero _options.yaml_. En este fichero se pueden establecer diversas opciones como:
+- use_dask: if you want to use Dask for parallel processing.
+- subsample: size of the subsample to use in preprocessing.
+- pipe: processing operations to apply.
+- dir_*: directories for data, metadata, stopwords, ngrams, vocabulary, and output files.
+- use_stopwords and use_ngrams: specify specific files to load or "all" to load all files from the corresponding directory.
 
-- use_dask: si se desea usar Dask para el procesamiento en paralelo.
-- subsample: tamaño de la submuestra a utilizar en el preprocesamiento.
-- pipe: operaciones de procesamiento a aplicar.
-- dir_*: directorios para datos, metadatos, stopwords, ngrams, vocabulario y ficheros de salida.
-- use_stopwords y use_ngrams: especificar ficheros específicos a cargar o "all" para cargar todos los ficheros del directorio correspondiente.
+For more details on each option, you can refer to the _options.yaml_ file where explanatory comments are found.
 
-Para más detalles sobre cada opción, se puede consultar el fichero _options.yaml_ donde se encuentran comentarios explicativos.
-
-## Estructura de ficheros
-
-### Datos
-
-El directorio definido en el fichero de configuración. Por defecto es: **_/app/data_**, aunque este puede ser un zip (**_/app/data/data.zip_**). Dentro de ese directorio se encontrarán otros subdirectorios (stopwords, vocabulary, ngrams) o un fichero `.zip` con la misma estructura. Por ejemplo:
-
-```bash
+# File Structure
+## Data:
+The directory defined in the configuration file. By default it is: **_/app/data_**, but this can be a zip (**_/app/data/data.zip_**). Within that directory, you will find other subdirectories (stopwords, vocabulary, ngrams) or a `.zip` file with the same structure. For example:
+```
 /app/data o /app/data/data.zip
 ├───ngrams
 │    ├───ngrams.txt
@@ -48,40 +41,35 @@ El directorio definido en el fichero de configuración. Por defecto es: **_/app/
     ├───outsiders.parquet
     └───minors.parquet
 ```
+## app/src
+Contains various functionalities of the application, divided into Preprocessor and TopicModels.
 
-### app/src
-
-Contiene las diversas funcionalidades de la aplicación, divididas en Preprocessor y TopicModels.
-
-#### Preprocessor
-
-En src/Preprocessor están todas las clases que se utilizan, y el `preprocess.py` es el script para procesar los parquets usando el pipeline. El pipeline por defecto identifica el lenguaje del texto, lo normaliza y preprocesa.
-Algunas consideraciones:
-
+### Preprocessor:
+In src/Preprocessor you will find all the classes that are used, and `preprocess.py` is the script to process the parquets using the pipeline. The default pipeline identifies the language of the text, normalizes it, and preprocesses it.
+Some considerations:
 - Lemmatizer\
-    Se puede utilizar uno propio para castellano (que usa las reglas del idioma) o los de Spacy y similares (algo más rápidos). Por defecto se usan los de Spacy (_options.yaml/vocabulary:false_).
+    You can use a custom one for Spanish (that uses the language's rules) or the ones from Spacy and similar (somewhat faster). By default, Spacy ones are used (*options.yaml/vocabulary:false*).
 
 - NgramProcessor\
-    Contiene diversas funciones para buscar, filtrar, sustituir ngrams o comprobar la validez de los mismos.
+    Contains various functions to search, filter, replace ngrams, or check their validity.
 
 - TextProcessor\
-    Genera un pipeline de preprocesamiento para los textos. Utiliza todo lo descrito en los puntos anteriores. Se pueden pasar los ngrams, stopwords o vocabulario. Los elementos del pipeline disponible son:
-  - lowercase
-  - remove_tildes
-  - remove_extra_spaces
-  - remove_punctuation
-  - remove_urls
-  - lemmatize_text
-  - pos_tagging
-  - clean_text: selecciona palabras que tienen al menos min_len caracteres. Filtra palabras que no empiezan con una letra, no terminan con una letra o número, tengan múltiples caracteres especiales…
-  - convert_ngrams
-  - remove_stopwords
-  - correct_spelling: (este habría que mejorarlo)
-  - tokenize_text
+    Generates a preprocessing pipeline for texts. It uses everything described in the previous points. You can pass the ngrams, stopwords, or vocabulary. The available pipeline elements are:
+    - lowercase
+    - remove_tildes
+    - remove_extra_spaces
+    - remove_punctuation
+    - remove_urls
+    - lemmatize_text
+    - pos_tagging
+    - clean_text: selects words that have at least min_len characters. Filters out words that don't start with a letter, don't end with a letter or number, have multiple special characters…
+    - convert_ngrams
+    - remove_stopwords
+    - correct_spelling: (this needs improvement)
+    - tokenize_text
 
-    Para crear un TextProcessor hay que hacerlo usando una lista de diccionarios, porque en algunos casos es necesario usar parámetros. Por ejemplo:
-
-    ```python
+To create a TextProcessor, you must do it using a list of dictionaries because, in some cases, parameters are needed. For example:
+    ```
     methods=[
         {"method": "lowercase"},
         {"method": "remove_urls"},
@@ -90,60 +78,56 @@ Algunas consideraciones:
         {"method": "remove_stopwords"}
     ]
     ```
-
 - **preprocess.py**\
-    Script principal. Hay que pasar el parámetro –options con el yaml donde está toda la configuración. El método `merge_data` utilizado al principio se utiliza para unificar los datos de las distintas fuentes (insiders, outsiders y minors). Las columnas utilizadas son las de texto por defecto ([_title_, _summary_]) y las concatena en _text_. En caso de que cambie el formato de los parquets, habrá que cambiar esto.\
-    Se utilizan métodos de paralelización todo lo posible, aunque esto debe ajustarse en función de la disponibilidad de los equipos.
+    Main script. You must pass the –options parameter with the yaml where all the settings are. The `merge_data` method used at the beginning is used to unify the data from different sources (insiders, outsiders, and minors). The default text columns used are [_title_, _summary_] and they concatenate into text. If the format of the parquets changes, this will need to be modified.\
+    Parallelization methods are used as much as possible, although this should be adjusted based on the availability of the equipment.
 
-### Topic models
+## Topic models
+Contains the elements used in `topic_models_test.py` which would be a comparator of all models with a subset. It can be adapted by changing the data source and the models to use.
 
-Contiene los elementos usados en `topic_models_test.py` que sería un comparador de todos los modelos con un subset. Se puede adaptar cambiando el origen de los datos y los modelos a usar.
-
-#### Modelos
-
-- BaseModel\
-    Modelo que sirve de base para todos los demás. Hay que especificar la ubicación para guardarlo, número de tópicos, etc. Hay tres funciones que hay que implementar en cada uno de los modelos que lo extienden, que son `_model_train`, `_model_predict` y `load_model`.
-    Contiene, además, métodos para guardar los documentos, guardar y cargar topic-keys, doc-topics, etc.
+### Models:
+- BaseModel
+    A base model for all others. You need to specify where to save it, number of topics, etc. There are three functions that need to be implemented in each of the extending models, which are `_model_train`, `_model_predict`, and `load_model`.
+    It also contains methods to save the documents, save and load topic-keys, doc-topics, etc.
 - BERTopic\
-    El entrenamiento y el predict siguen el esquema de <https://maartengr.github.io/BERTopic/algorithm/algorithm.html>
-    El modelo usado para castellano, catalán, gallego y vasco es `paraphrase-multilingual-MiniLM-L12-v2`.
+    The training and prediction follow the scheme from https://maartengr.github.io/BERTopic/algorithm/algorithm.html
+    The model used for Spanish, Catalan, Galician, and Basque is `paraphrase-multilingual-MiniLM-L12-v2`.
 - Mallet\
-    Es un wrapper para Mallet, simplemente hay que pasarle la ubicación del bin/mallet. El resto de la configuración es igual que el Mallet normal.
+    It's a wrapper for Mallet, you just need to provide the bin/mallet location. The rest of the setup is the same as the regular Mallet.
 - Tomotopy\
-    Usa <https://bab2min.github.io/tomotopy/v/en/>
-    Hay dos versiones: **tomotopyLDA** y **tomotopyCT**. La implementación es similar.
+    Uses https://bab2min.github.io/tomotopy/v/en/
+    There are two versions: **tomotopyLDA** and **tomotopyCT**. The implementation is similar.
 - NMF\
-    Es una implementación sencilla de NMF que usa vectorizador de TF-IDF o CountVectorizer.
+    It's a simple implementation of NMF that uses a TF-IDF vectorizer or CountVectorizer.
 - Gensim\
-    El modelo básico de gensim que uso en el test para tener un baseline.
+    The basic Gensim model that I use in the test to have a baseline.
 
-- **topic_models_test.py**\
-Script principal. Hay que pasar el parámetro --options con el yaml donde está toda la configuración. Primero se ejecutan todos los modelos y luego se imprime la información de la calidad de los modelos (tiempos de ejecución, PMI, etc.)
+- **topic_models_test.py**
+Main script. You need to pass the --options parameter with the yaml where all the settings are. First, all models are executed and then the model quality information is printed (execution times, PMI, etc.)
 
-### Utils
+## Utils
+Here you will find functions with various purposes, such as parallelizing or loading data.
 
-Aquí se encuentran funciones con diversas finalidades, como paralelizar o cargar datos.
+# Docker
+The Dockerfile allows to build a Docker image based on an Ubuntu image with CUDA. In this image Python 3.11 and all necessary dependencies are installed, including SentenceTransformer and other language models.
 
-## Docker
-
-El fichero Dockerfile permite construir una imagen de Docker basada en una imagen de Ubuntu con CUDA. En esta imagen se instala Python 3.11 y todas las dependencias necesarias, incluyendo SentenceTransformer y otros modelos de lenguaje.
-
-Para construir la imagen de Docker, se puede utilizar el comando siguiente:
-
-```bash
+To build the Docker image, the following command can be used:
+```
 docker build -t image_name .
 ```
 
-Una vez construida la imagen, se puede crear un contenedor de Docker para ejecutar el script de preprocesamiento. El comando siguiente muestra cómo hacerlo:
-
-```bash
+Once the image is built, a Docker container can be created to run the preprocessing script. The following command shows how to do it:
+```
 docker run --gpus all --rm -it -v /path/to/data:/app/data image_name
 ```
+In this command, the data directory of the host machine is mounted into the Docker container at the /app/data location.
 
-Para que funcione el topiclabeller, el servicio se tiene que ejecutar de la siguiente manera:
 
-donde ``.venv`` es un fichero dónde está definda una clave de OpenAI, tal que ``OPENAI_API_KEY=XXXX``.
+## Acknowledgements
 
-En este comando, se monta el directorio de datos de la máquina host en el contenedor de Docker en la ubicación /app/data.
+This work has received funding from the NextProcurement European Action (grant agreement INEA/CEF/ICT/A2020/2373713-Action 2020-ES-IA-0255).
 
-[![](https://img.shields.io/badge/lang-en-red)](README.en.md)
+<p align="center">
+  <img src="static/Images/eu-logo.svg" alt="EU Logo" width="200" style="margin-right: 20px;">
+  <img src="static/Images/nextprocurement-logo.png" alt="Next Procurement Logo" width="200">
+</p>

@@ -12,7 +12,7 @@ from src.Preprocessor.LanguageDetector import LanguageDetector
 from src.Preprocessor.TextProcessor import TextPreprocessor
 from src.Preprocessor.utils import merge_data
 from src.TopicModeling.solr_backend_utils.utils import create_logical_corpus
-from src.utils import load_equivalences, load_item_list, parallelize_function, set_logger
+from src.Utils.utils import load_equivalences, load_item_list, parallelize_function, set_logger
 from datetime import datetime
 
 

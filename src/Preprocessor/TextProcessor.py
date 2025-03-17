@@ -9,7 +9,7 @@ import spacy
 from nltk.stem.snowball import SnowballStemmer
 from unidecode import unidecode
 
-from src.utils import set_logger
+from src.Utils.utils import set_logger
 from .Lemmatizer import Lemmatizer
 from .NgramProcessor import replace_ngrams
 

@@ -9,7 +9,7 @@ import pandas as pd
 from gensim.models import Word2Vec, FastText
 
 from sentence_transformers import SentenceTransformer
-from src.utils import set_logger
+from src.Utils.utils import set_logger
 
 
 class Embedder(object):

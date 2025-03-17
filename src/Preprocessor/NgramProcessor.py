@@ -15,7 +15,7 @@ sys.path.append(str(Path(__file__).parents[2]))
 
 import argparse
 
-from src.utils import load_item_list, replace_company_types
+from src.Utils.utils import load_item_list, replace_company_types
 
 
 def find_ngrams(text: List[str], n: int = 2, **kwargs):

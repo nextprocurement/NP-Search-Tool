@@ -31,5 +31,9 @@ config/options_carlos.yaml
 preprocess_Carlos.py
 train_tm_Carlos.py
 train_tm_Carlos_all.py
-
-
+lib
+cache
+aux_scripts/_old
+train_tm2.py
+topic_models_test.py
+retrain_cpv_models.py

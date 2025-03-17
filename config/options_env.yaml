@@ -30,7 +30,7 @@ lang:  # Languages to consider in 'lang_id' step. Can be multiple.
 dir_data: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data  # Root data directory
 dir_text_processed: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/processed  # Path to output processed text metadata parquet file
 dir_logical: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/logical_dtsets
-dir_output_models: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/models/  # Path to output topic models
+dir_output_models: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/cpv_models_iter_cpvs_ok # Path to output topic models
 dir_mallet: /export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Search-Tool/sample_data/models/mallet-2.0.8/bin/mallet # This path shouldn't be changed when using docker
 
 # List loading options
@@ -53,6 +53,7 @@ use_ngrams: all  # Which ngrams to use
 training_params:
   num_topics: 10 #,20,25,30,50,75,100,150 #15,30,50,75 #5,10,15,20,25,30,50,75,100,150 # Number of training topics
   word_min_length: 3  # Minimum length of words to consider
+  min_lemmas: 3
   Mallet_params:  # Parameters for the Mallet LDA model
     alpha: 5  
     optimize_interval: 10

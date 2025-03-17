@@ -1,4 +1,4 @@
-from src.utils import load_item_list, set_logger, train_test_split
+from src.Utils.utils import load_item_list, set_logger, train_test_split
 from src.TopicModeling import (
     BERTopicModel,
     GensimLDAModel,
