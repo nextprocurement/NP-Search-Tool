@@ -85,8 +85,8 @@ Contains a series of topic model implementations, wrapped under the common class
 
 #### Models:
 - **BaseModel**\
-    A base model for all others. You need to specify where to save it, number of topics, etc. There are three functions that need to be implemented in each of the extending models, which are `_model_train`, `_model_predict`, and `load_model`.
-    It also contains methods to save the documents, save and load topic-keys, doc-topics, etc.
+    A foundational class for all other models. Any subclass extending this base must implement the following core methods: `_model_train`, `_model_predict`, and `load_model`.
+    In addition to defining the training and inference interfaces, it provides utility methods for saving documents, as well as saving and loading topic keys, document-topic distributions, and related data.
 - **BERTopic**\
     The training and prediction follow the scheme from https://maartengr.github.io/BERTopic/algorithm/algorithm.html
     The model used for Spanish, Catalan, Galician, and Basque is `paraphrase-multilingual-MiniLM-L12-v2`.
