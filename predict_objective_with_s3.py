@@ -287,155 +287,168 @@ df["topic_info_large"] = None
 # keep rows that were not predicted as 1
 df = df[df["predicted_label"] != 1]
 
-for version in ["small", "large"]:
+df_all_keep_concat = []
+count_per_cpv = defaultdict(int)
+for directory in path_models.iterdir():
+    if not directory.is_dir():
+        continue
 
-    count_per_cpv = defaultdict(int)
-    for directory in path_models.iterdir():
-        if not directory.is_dir():
-            continue
+    cpv = directory.name.split("_")[-1] 
+    print(f"Processing CPV: {cpv}")
 
-        cpv = directory.name.split("_")[-1] 
-        print(f"Processing CPV: {cpv}")
+    topics_pos = []
+    topics_files = []
 
-        topics_pos = []
-        topics_files = []
+    for file in directory.iterdir():
+        if file.is_dir():
+            try:
+                n_topics = int(file.name.split("_")[0])
+                topics_pos.append(n_topics)
+                topics_files.append(file)
+            except ValueError:
+                continue
 
-        for file in directory.iterdir():
-            if file.is_dir():
-                try:
-                    n_topics = int(file.name.split("_")[0])
-                    topics_pos.append(n_topics)
-                    topics_files.append(file)
-                except ValueError:
-                    continue
-
-        if not topics_pos:
-            print(f"No valid topis for CPV {cpv}")
-            continue
-        
+    if not topics_pos:
+        print(f"No valid topis for CPV {cpv}")
+        continue
+    
+    for version in ["small", "large"]:
+    
         n_topics_graph = min(topics_pos) if version == "small" else max(topics_pos)
         tmmodel_path = topics_files[topics_pos.index(n_topics_graph)]
         tmmodel = TMmodel(
             tmmodel_path.joinpath("model_data/TMmodel"))
+        
+        
+        if version == "small":
+            tmmodel._load_vocab()
+            vocabulary = tmmodel._vocab
+            
+            # Load training corpus to see which documents were kept in the training data
+            # the training data is the same for all versions, so we only need to load it once
+            corpusFile = tmmodel_path.joinpath('train_data/corpus.txt')
+            with corpusFile.open("r", encoding="utf-8") as f:
+                lines = f.readlines()  
+                f.seek(0)
+                try:
+                    documents_ids = [line.rsplit(" 0 ")[0].strip() for line in lines]
+                    documents_texts = [line.rsplit(" 0 ")[1].strip().split() for line in lines]
+                except:
+                    documents_ids = [line.rsplit("\t0\t")[0].strip() for line in lines]
+                    documents_texts = [line.rsplit("\t0\t")[1].strip().split() for line in lines]
+            df_corpus_train = pd.DataFrame({'id': documents_ids, 'text': documents_texts})
+            df_corpus_train["id_int"] = range(df_corpus_train.shape[0])
+            # get all metadata in df_corpus_train            
+            df_all_ = df_all[df_all["two_cpv"] == cpv]
+            df_corpus_train = pd.merge(
+                df_corpus_train, 
+                df_all_[['place_id', 'procurement_id', 'raw_text', 'expediente']], 
+                left_on='id', 
+                right_on="place_id", 
+                how='left'
+            )
+            
+            # append count if the cpv is not in count_per_cpv already
+            if cpv not in count_per_cpv:
+                count_per_cpv[cpv] = df_corpus_train.shape[0]
+            
+            df_corpus_train["kept_in_training"] = True
+            df_corpus_train["two_cpv"] = cpv
+            
+            # get inference corpus
+            # keep rows whose "two_cpv" is the same as the current cpv
+            df_cpv = df[df["two_cpv"] == cpv]
+            
+            # Carry out the same preprocessing as in the training data
+            print(f"Data shape: {df_cpv.shape}")
+            print(f"Average lemmas per document (before processing): {df_cpv['lemmas'].apply(lambda x: len(x.split())).mean()}")
+            
+            # Clean text
+            df_cpv['lemmas'] = df_cpv['lemmas'].apply(lambda x: tkz_clean_str(x, stopwords, equivalents))
+            print(f"-- -- Text cleaned in {time.time() - start_time:.2f} seconds")
 
+            # remove words that are not in the vocabulary
+            df_cpv['lemmas'] = df_cpv['lemmas'].apply(lambda x: ' '.join([word for word in x.split() if word in vocabulary]))
+
+            # remove rows with less than min_lemmas lemmas
+            df_cpv = df_cpv[df_cpv['lemmas'].apply(lambda x: len(x.split())) >= min_lemmas]
+            print(f"Data shape after filtering: {df_cpv.shape}")
+            print(f"Average lemmas per document (after processing): {df_cpv['lemmas'].apply(lambda x: len(x.split())).mean()}")
+            
+            # check that there is no empty lemmas
+            print(f"Empty lemmas: {df_cpv['lemmas'].apply(lambda x: len(x)).sum() == 0}")
+            
+            docs = df_cpv[["place_id", "lemmas"]].values
+        
+        # Load model information
         tmmodel._load_s3()
         s3 = tmmodel._s3.toarray()
-        tmmodel._load_vocab()
         tmmodel._load_betas()
         tmmodel._load_thetas()
         tmmodel._load_vocab_dicts()
-        vocabulary = tmmodel._vocab
         betas = tmmodel._betas
         vocab_w2id = tmmodel._vocab_w2id
         thetas = tmmodel._thetas
         
-        # Load training corpus to see which documents were kept in the training data
-        corpusFile = tmmodel_path.joinpath('train_data/corpus.txt')
-        with corpusFile.open("r", encoding="utf-8") as f:
-            lines = f.readlines()  
-            f.seek(0)
-            try:
-                documents_ids = [line.rsplit(" 0 ")[0].strip() for line in lines]
-                documents_texts = [line.rsplit(" 0 ")[1].strip().split() for line in lines]
-            except:
-                documents_ids = [line.rsplit("\t0\t")[0].strip() for line in lines]
-                documents_texts = [line.rsplit("\t0\t")[1].strip().split() for line in lines]
-        df_corpus_train = pd.DataFrame({'id': documents_ids, 'text': documents_texts})
-        df_corpus_train["id_int"] = range(df_corpus_train.shape[0])
-        df_corpus_train[f"topic_info_{version}"] = df_corpus_train.apply(lambda x: get_info_doc(thetas, x.id_int), axis=1)
-        # filter df_all by CPV
-        df_all_ = df_all[df_all["two_cpv"] == cpv]
-        df_corpus_train = pd.merge(
-            df_corpus_train, 
-            df_all_[['place_id', 'procurement_id', 'raw_text']], 
-            left_on='id', 
-            right_on="place_id", 
-            how='left'
-        )
-
-        # append count if the cpv is not in count_per_cpv already
-        if cpv not in count_per_cpv:
-            count_per_cpv[cpv] = df_corpus_train.shape[0]
-        
-        # update in the df_save the rows that were kept in the training data
-        df_save.loc[df_save['place_id'].isin(df_corpus_train['place_id']) & (df_save.two_cpv == cpv), 'kept_in_training'] = True
-        
-        # get thetas representation from the training data
-        df_save.loc[df_save['place_id'].isin(df_corpus_train['place_id']) & (df_save.two_cpv == cpv), f"topic_info_{version}"] = df_corpus_train[f"topic_info_{version}"]
-        
-        # keep rows whose "two_cpv" is the same as the current cpv
-        df_cpv = df[df["two_cpv"] == cpv]
-        
-        # Carry out the same preprocessing as in the training data
-        print(f"Data shape: {df_cpv.shape}")
-        print(f"Average lemmas per document (before processing): {df_cpv['lemmas'].apply(lambda x: len(x.split())).mean()}")
-        
-        # Clean text
-        df_cpv['lemmas'] = df_cpv['lemmas'].apply(lambda x: tkz_clean_str(x, stopwords, equivalents))
-        print(f"-- -- Text cleaned in {time.time() - start_time:.2f} seconds")
-
-        # remove words that are not in the vocabulary
-        df_cpv['lemmas'] = df_cpv['lemmas'].apply(lambda x: ' '.join([word for word in x.split() if word in vocabulary]))
-
-        # remove rows with less than min_lemmas lemmas
-        df_cpv = df_cpv[df_cpv['lemmas'].apply(lambda x: len(x.split())) >= min_lemmas]
-        print(f"Data shape after filtering: {df_cpv.shape}")
-        print(f"Average lemmas per document (after processing): {df_cpv['lemmas'].apply(lambda x: len(x.split())).mean()}")
-        
-        # check that there is no empty lemmas
-        print(f"Empty lemmas: {df_cpv['lemmas'].apply(lambda x: len(x)).sum() == 0}")
+        # get thetas info for the training data    
+        df_corpus_train[f"topic_info_{version}"] = df_corpus_train.apply(lambda x: get_info_doc(thetas, x.id_int), axis=1)        
         
         # make inference
-        docs = df_cpv[["place_id", "lemmas"]].values
         thetas_infer, infer_corpus_path = infer_thetas(tmmodel_path, n_topics_graph, docs, dir_mallet)
         
         s3_infer = calculate_s3(infer_corpus_path, thetas_infer, betas, vocab_w2id)
         # calculate average per document
         s3_infer_avg = s3_infer.mean(axis=1)
         
-        # get the ids of the documents that were kept in the inference data
-        with infer_corpus_path.open("r", encoding="utf-8") as f:
-            lines = f.readlines()  
-            f.seek(0)
-            try:
-                documents_ids = [line.rsplit(" 0 ")[0].strip() for line in lines]
-                documents_texts = [line.rsplit(" 0 ")[1].strip().split() for line in lines]
-            except:
-                documents_ids = [line.rsplit("\t0\t")[0].strip() for line in lines]
-                documents_texts = [line.rsplit("\t0\t")[1].strip().split() for line in lines]
-        df_corpus_infer = pd.DataFrame({'id': documents_ids, 'text': documents_texts})
-        df_corpus_infer["id_int"] = range(df_corpus_infer.shape[0])
+        if version == "small":
+            # get the ids of the documents that were kept in the inference data
+            with infer_corpus_path.open("r", encoding="utf-8") as f:
+                lines = f.readlines()  
+                f.seek(0)
+                try:
+                    documents_ids = [line.rsplit(" 0 ")[0].strip() for line in lines]
+                    documents_texts = [line.rsplit(" 0 ")[1].strip().split() for line in lines]
+                except:
+                    documents_ids = [line.rsplit("\t0\t")[0].strip() for line in lines]
+                    documents_texts = [line.rsplit("\t0\t")[1].strip().split() for line in lines]
+                    
+            df_corpus_infer = pd.DataFrame({'id': documents_ids, 'text': documents_texts})
+            df_corpus_infer["id_int"] = range(df_corpus_infer.shape[0])
+            df_corpus_infer["two_cpv"] = cpv
+            
+            df_corpus_infer = pd.merge(
+                df_corpus_infer, 
+                df_all_[['place_id', 'procurement_id', 'raw_text']], 
+                left_on='id', 
+                right_on="place_id", 
+                how='left'
+            )
+            
+            df_corpus_infer["kept_in_inference"] = True
+            
         # get topic info for the inference data
         df_corpus_infer[f"topic_info_{version}"] = df_corpus_infer.apply(lambda x: get_info_doc(thetas_infer, x.id_int), axis=1)
-        df_corpus_infer = pd.merge(
-            df_corpus_infer, 
-            df_all_[['place_id', 'procurement_id', 'raw_text']], 
-            left_on='id', 
-            right_on="place_id", 
-            how='left'
-        )
-        
-        # update in the df_save the rows that were kept in the infer data
-        # the conditions to be met are that the place_id is in the df_corpus_infer and the "two_cpv" is the same as the current cpv
-        df_save.loc[df_save['place_id'].isin(df_corpus_infer['place_id']) & (df_save.two_cpv == cpv), 'kept_in_inference'] = True
-        
-        # get thetas representation from the inference data
-        df_save.loc[df_save['place_id'].isin(df_corpus_infer['place_id']) & (df_save.two_cpv == cpv), f"topic_info_{version}"] = df_corpus_infer[f"topic_info_{version}"]
-        
-        # update the average s3 in the df_save
-        df_save.loc[df_save['place_id'].isin(df_corpus_infer['place_id']) & (df_save.two_cpv == cpv), "avg_s3"] = s3_infer_avg
+        df_corpus_infer[f"avg_s3_{version}"] = s3_infer_avg
 
         # if the average is higher than s3_mean keep the document
         thr = s3.mean()
-        df_save.loc[df_save['place_id'].isin(df_corpus_infer['place_id']) & (df_save.two_cpv == cpv) & (df_save['avg_s3'] >= thr), "kept_by_s3"] = True
+        df_corpus_infer[f"kept_by_s3_{version}"] = df_corpus_infer[f"avg_s3_{version}"] > thr
+        
+        df_corpus_infer[f"topic_info_{version}"] = df_corpus_infer[f"topic_info_{version}"].apply(lambda x: str(x))
+        df_corpus_train[f"topic_info_{version}"] = df_corpus_train[f"topic_info_{version}"].apply(lambda x: str(x))
+    
+    df_all_keep_concat.append(df_corpus_train)
+    df_all_keep_concat.append(df_corpus_infer)
+    #import pdb; pdb.set_trace()
 
+# set to default values the rows that were not processed
+#df_save.loc[df_save['kept_in_training'] != True, 'kept_in_training'] = False
+#df_save.loc[df_save['kept_in_inference'] != True, 'kept_in_inference'] = False
+#df_save.loc[df_save['avg_s3'].isna(), 'avg_s3'] = 0.0
+#df_save.loc[df_save['kept_by_s3'] != True, 'kept_by_s3'] = False
+#df_save[f"topic_info_{version}"] = df_save[f"topic_info_{version}"].apply(lambda x: str(x))
 
-    # set to default values the rows that were not processed
-    df_save.loc[df_save['kept_in_training'] != True, 'kept_in_training'] = False
-    df_save.loc[df_save['kept_in_inference'] != True, 'kept_in_inference'] = False
-    df_save.loc[df_save['avg_s3'].isna(), 'avg_s3'] = 0.0
-    df_save.loc[df_save['kept_by_s3'] != True, 'kept_by_s3'] = False
-    df_save[f"topic_info_{version}"] = df_save[f"topic_info_{version}"].apply(lambda x: str(x))
+df_save = pd.concat(df_all_keep_concat)
 
 df_count_per_cpv = pd.DataFrame(count_per_cpv.items(), columns=['cpv', 'count'])
 df_count_per_cpv.to_csv("/export/usuarios_ml4ds/lbartolome/NextProcurement/NP-Text_Object/data/train_data/count_per_cpv.csv", index=False)

@@ -1,3 +1,7 @@
+"""
+This module contains the Embedder class, which is used to infer embeddings for a given list of sentences or words using Word2Vec or BERT models. The Word2Vec model can be trained using a corpus file, and the BERT model used for generating embeddings can be specified. The class also contains a method to create SBERT embeddings for each row in a dask or pandas dataframe and save the embeddings in a new column.
+"""
+
 import logging
 import pathlib
 import warnings

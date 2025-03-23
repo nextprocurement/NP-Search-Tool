@@ -1,4 +1,3 @@
-import re
 import os
 import pathlib
 import shutil
@@ -6,7 +5,7 @@ import shutil
 from matplotlib import pyplot as plt
 import numpy as np
 from src.TopicModeling.solr_backend_utils.utils import create_trainconfig
-from src.Utils.utils import load_item_list, set_logger, train_test_split
+from src.Utils.utils import set_logger, train_test_split
 import argparse
 import yaml
 from pathlib import Path
@@ -82,7 +81,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_topics",
         default="5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25,30,35,40,45,50",
-        #default="5,10,15",
         help="Number of topics to train the model on"
     )
     parser.add_argument(
@@ -243,10 +241,7 @@ if __name__ == "__main__":
         cpvs = cpvs[:-1]
         print(f"CPVs: {cpvs}")
         for cpv_data, cpv in zip(cpv_files, cpvs):
-            #if cpv not in ["1_79", "2_50", "3_71", "4_72", "5_33", "6_92", "7_90", "8_85", "9_34", "10_30", "11_44"]: #"0_45":
-            #    continue
-            #if cpv not in ["0_45"]:
-            #    continue
+            
             df = pd.read_parquet(os.path.join(args.data_path, cpv_data))
             # drop duplicates based on place_id
             df = df.drop_duplicates(subset=['place_id'])
@@ -388,8 +383,11 @@ if __name__ == "__main__":
         df['lemmas'] = df['lemmas'].apply(lambda x: ' '.join([word for word in x.split() if word in vocabulary]))
         # remove rows with less than min_lemmas lemmas
         df = df[df['lemmas'].apply(lambda x: len(x.split())) >= min_lemmas]
-        print(f"Data shape after filtering: {df.shape}")        
+        print(f"Data shape after filtering: {df.shape}")
         print(f"Average lemmas per document (after processing): {df['lemmas'].apply(lambda x: len(x.split())).mean()}")
+        
+        # check that there is no empty lemmas
+        print(f"Empty lemmas: {df['lemmas'].apply(lambda x: len(x)).sum() == 0}")
         
         # Train models
         cohrs = []

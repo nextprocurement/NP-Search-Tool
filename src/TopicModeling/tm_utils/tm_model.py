@@ -160,11 +160,11 @@ class TMmodel(object):
             self._tpc_embeddings = self.get_tpc_word_descriptions_embeddings()
             self._calculate_sims()
             
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             with self._TMfolder.joinpath('tpc_labels.txt').open('w', encoding='utf8') as fout:
                 fout.write('\n'.join(self._tpc_labels))
                 
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             np.save(self._TMfolder.joinpath('tpc_embeddings.npy'), np.array(
                 self._tpc_embeddings, dtype=object), allow_pickle=True)
 

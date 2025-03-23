@@ -19,7 +19,7 @@ from tabulate import tabulate
 # %%
 # minors = pd.read_parquet("data/minors.parquet")
 # m_cols = sorted(minors.columns)
-insiders = pd.read_parquet("data/insiders.parquet")
+insiders = pd.read_parquet("/export/usuarios_ml4ds/lbartolome/NextProcurement/sproc/place_feb_21/insiders.parquet")
 i_cols = sorted(insiders.columns)
 # outsiders = pd.read_parquet("data/outsiders.parquet")  # agregados
 # o_cols = sorted(outsiders.columns)
@@ -159,7 +159,8 @@ win_cols = sorted(
 
 # %%
 # Get winning companies and unify names
-companies = df[win_cols]
+win_cols_keep = [win_cols[i] for i in [0,2]]
+companies = df[win_cols_keep]
 companies.columns = ["CompanyID", "CompanyName"]
 # companies[companies["CompanyID"].apply(len)>1]
 companies["CompanyID"] = companies["CompanyID"].apply(lambda x: x[0])
@@ -312,23 +313,22 @@ cpvs.name = cname
 project_lots = df[lot_cols].applymap(fill_na, fill=None).dropna(how="all")
 
 # %%
-re.sub(
-    r"[a-z]",
-    "",
-)
+#re.sub(r"[a-z]","")
 
 # %%
-[[el for el in c if el] for c in project_lots.columns]
+#[[el for el in c if el] for c in project_lots.columns]
 
 # %%
 lot_cols = []
 for c in project_lots.columns:
+    print(c)
     v = [el for el in c if el]
     lot_cols.append(re.sub(r"[a-z]", "", ".".join(v[:-1])) + f".{v[-1]}")
 cpvCol = [c for c in lot_cols if c.endswith("ItemClassificationCode")][0]
 
 # %%
 # Find projects with Lots
+import pdb; pdb.set_trace()
 project_lots = df[lot_cols].applymap(fill_na, fill=None).dropna(how="all")
 
 lot_cols = []

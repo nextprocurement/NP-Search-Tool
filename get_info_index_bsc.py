@@ -41,11 +41,6 @@ df_grouped = df_filtered.groupby("place_id").agg({
     "two_cpv": list
 }).reset_index()
 
-
-# añadir información de cpv a df_data
-# meter modelo grande y pequeño
-# renombar modelos o finegrined and whathever other word.
-
 info_tpcs = defaultdict(dict)
 for version in ["small", "large"]:
     for directory in path_models.iterdir():
@@ -112,7 +107,8 @@ for id_int, df_row in df_grouped.iterrows():
     
     this_doc_dict = {
         "augmented_objective": df_row["raw_text"],
-        "augmented_cpv": augmented_cpv
+        "augmented_cpv": augmented_cpv,
+        "info_topics": this_doc_topic_dict
     }
     info_docs[id_p] = this_doc_dict
     
