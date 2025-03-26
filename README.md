@@ -137,7 +137,6 @@ After running all modules, the following output directory structure is generated
 
 ```python
 model
-model
 ├── graphs
 │   ├── draw_graph_communities_communities.csv # CSV file containing community assignments for each node in the graph.
 │   ├── draw_graph_communities.png             # PNG image visualizing the graph with community overlays.
